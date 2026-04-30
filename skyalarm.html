@@ -267,6 +267,26 @@
     }
     .ms-c-warn { color: #ffaa00; font-weight: 700; }
     .ms-c-nogo { color: #ff5555; font-weight: 700; }
+    .ms-icing {
+      margin-top: 0.35rem;
+      padding-top: 0.35rem;
+      border-top: 1px solid rgba(255,255,255,0.1);
+      color: var(--text2);
+      display: flex;
+      flex-direction: column;
+      gap: 0.05rem;
+    }
+    .ms-icing:empty { display: none; }
+    .ms-icing-line { display: flex; align-items: center; gap: 0.3rem; }
+    .ms-icing-data {
+      font-size: 0.66rem;
+      opacity: 0.75;
+      padding-left: 1.1rem;
+    }
+    .ms-icing .crit { color: #ff5555; font-weight: 700; }
+    .ms-icing .warn { color: #ffaa00; font-weight: 700; }
+    .ms-icing .ok { color: #4f4; font-weight: 600; }
+
     .ms-ice {
       margin-top: 0.35rem;
       padding-top: 0.35rem;
@@ -289,6 +309,10 @@
     #app-view.av-light .ms-zone-item.go { color: #198a3a; }
     #app-view.av-light .ms-wind { border-top-color: rgba(0,0,0,0.12); }
     #app-view.av-light .ms-ice { border-top-color: rgba(0,0,0,0.12); color: #b00; }
+    #app-view.av-light .ms-icing { border-top-color: rgba(0,0,0,0.12); color: #444; }
+    #app-view.av-light .ms-icing .ok { color: #198a3a; }
+    #app-view.av-light .ms-icing .warn { color: #b87000; }
+    #app-view.av-light .ms-icing .crit { color: #b00; }
 
     /* === ZONES OVERLAY (Detailliste, ausklappbar, unter dem Kompakt-Overlay) === */
     .zones-overlay {
@@ -567,6 +591,7 @@
         <div class="status-summary" id="status-summary">
           <div class="ms-zones" id="ms-zones"></div>
           <div class="ms-wind" id="ms-wind"></div>
+          <div class="ms-icing" id="ms-icing"></div>
           <div class="ms-ice hidden" id="ms-ice"></div>
         </div>
       </div>
@@ -629,7 +654,7 @@
 
   <script>
     /* [J-VER] Versionsnummer — einzige Stelle */
-    const APP_VER = '0.13';
+    const APP_VER = '0.14';
     document.querySelectorAll('.l-ver').forEach(e => e.textContent = APP_VER);
 
     /* [J-I18N] Internationalisierung — DE/EN, alarm-spezifisch */
@@ -671,6 +696,10 @@
         msNature: 'Naturschutz', msResidential: 'Siedlung', msMilitary: 'Militär',
         msIndustry: 'Industrie/Energie', msHospital: 'Krankenhaus',
         iceAlertShort: (mm, t) => `Eisalarm: ${mm} mm bei ${t} °C`,
+        lblIcing50: 'Vereisung 50 m',
+        dpCrit: 'Kritische Vereisung',
+        dpFog: 'Nebelgefahr / Klareis',
+        dpClear: 'Keine Gefahr',
       },
       en: {
         locInit: 'Determining location…',
@@ -709,6 +738,10 @@
         msNature: 'Nature Reserve', msResidential: 'Residential', msMilitary: 'Military',
         msIndustry: 'Industry/Energy', msHospital: 'Hospital',
         iceAlertShort: (mm, t) => `Ice alert: ${mm} mm at ${t} °C`,
+        lblIcing50: 'Icing 50 m',
+        dpCrit: 'Critical icing risk',
+        dpFog: 'Fog risk / Clear ice',
+        dpClear: 'No risk',
       }
     };
     let LANG = localStorage.getItem('skyalarm-lang') || 'de';
@@ -879,6 +912,14 @@
       }
     }
 
+    /* [J-DEWPOINT] Magnus-Tetens-Formel: Taupunkt aus Temp + RH */
+    function calcDewPoint(t, rh) {
+      if (rh == null || rh <= 0 || t == null) return null;
+      const a = 17.625, b = 243.04;
+      const alpha = Math.log(rh / 100) + (a * t) / (b + t);
+      return +((b * alpha) / (a - alpha)).toFixed(1);
+    }
+
     /* [J-FETCHWEATHER] BrightSky — aktueller Wind, Böen, Niederschlag, Temperatur */
     async function fetchWeather(lat, lon) {
       const now = new Date();
@@ -988,6 +1029,41 @@
             + `<span class="${gc}">${gust.toFixed(0)} m/s</span>`;
         } else {
           $w.innerHTML = '';
+        }
+      }
+
+      // Vereisungs- und Nebelgefahr in 50 m Höhe (Magnus-Tetens + Lapse-Rate)
+      const $icing = $('ms-icing');
+      if ($icing) {
+        if (weather && weather.temperature != null) {
+          const ALT = 50;                                  // Bezugshöhe in m
+          const T_LAPSE = 0.0065;                          // Standardatmosphäre °C/m
+          const TD_LAPSE = 0.002;                          // Taupunkt-Lapse °C/m
+          const tSurf = weather.temperature;
+          let tdSurf = weather.dew_point;
+          if (tdSurf == null && weather.relative_humidity != null) {
+            tdSurf = calcDewPoint(tSurf, weather.relative_humidity);
+          }
+          if (tdSurf != null) {
+            const t50 = +(tSurf - T_LAPSE * ALT).toFixed(1);
+            const td50 = +(tdSurf - TD_LAPSE * ALT).toFixed(1);
+            const spread = +(t50 - td50).toFixed(1);
+            let label, cls, icon;
+            if (t50 >= -10 && t50 <= 0 && spread < 1) {
+              label = _t('dpCrit'); cls = 'crit'; icon = '🧊';
+            } else if (t50 < 3 && spread < 2) {
+              label = _t('dpFog'); cls = 'warn'; icon = '🌫';
+            } else {
+              label = _t('dpClear'); cls = 'ok'; icon = '✓';
+            }
+            $icing.innerHTML =
+              `<div class="ms-icing-line">${icon}&nbsp;<span class="${cls}">${_t('lblIcing50')}: ${label}</span></div>`
+              + `<div class="ms-icing-data">T ${t50.toFixed(1)}° · Td ${td50.toFixed(1)}° · Δ ${spread.toFixed(1)}°C</div>`;
+          } else {
+            $icing.innerHTML = '';
+          }
+        } else {
+          $icing.innerHTML = '';
         }
       }
 
