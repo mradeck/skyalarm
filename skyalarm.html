@@ -654,7 +654,7 @@
 
   <script>
     /* [J-VER] Versionsnummer — einzige Stelle */
-    const APP_VER = '0.14';
+    const APP_VER = '0.15';
     document.querySelectorAll('.l-ver').forEach(e => e.textContent = APP_VER);
 
     /* [J-I18N] Internationalisierung — DE/EN, alarm-spezifisch */
@@ -933,6 +933,7 @@
         const arr = (d.weather || []).map(w => ({
           ...w,
           temperature: w.temperature != null ? +(w.temperature - 273.15).toFixed(2) : null,
+          dew_point: w.dew_point != null ? +(w.dew_point - 273.15).toFixed(2) : null,
         }));
         // Aktuellen Datensatz zur jetzigen Stunde wählen
         const ts = now.getTime();
