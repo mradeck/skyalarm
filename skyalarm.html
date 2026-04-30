@@ -205,6 +205,121 @@
     /* Aircraft popup */
     .ac-popup b { color: var(--accent); }
 
+    /* === ZONES OVERLAY (oben links) === */
+    .zones-overlay {
+      position: absolute;
+      top: 44px;
+      left: 8px;
+      z-index: 1003;
+      width: min(300px, calc(100% - 60px));
+      max-height: 60vh;
+      background: rgba(15, 15, 15, 0.88);
+      backdrop-filter: blur(4px);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      border-radius: 8px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      font-size: 0.78rem;
+    }
+    .zones-overlay-hdr {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.45rem 0.7rem;
+      cursor: pointer;
+      border-bottom: 1px solid rgba(255,255,255,0.12);
+      gap: 0.4rem;
+    }
+    .zones-overlay-hdr-left {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-weight: 600;
+      color: var(--text);
+      flex: 1;
+      min-width: 0;
+    }
+    #zones-overlay-text {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .zones-overlay-cnt {
+      background: rgba(229,57,53,0.85);
+      color: #fff;
+      font-size: 0.65rem;
+      font-weight: 700;
+      padding: 0.1rem 0.45rem;
+      border-radius: 12px;
+      min-width: 20px;
+      text-align: center;
+      flex-shrink: 0;
+    }
+    .zones-overlay-cnt.ok { background: rgba(46,170,80,0.85); }
+    .zones-overlay-chev {
+      color: var(--text2);
+      transition: transform 0.2s;
+      font-size: 0.7rem;
+      flex-shrink: 0;
+    }
+    .zones-overlay-chev.open { transform: rotate(180deg); }
+    .zones-overlay-body {
+      display: none;
+      overflow-y: auto;
+      flex: 1;
+    }
+    .zones-overlay-body.open { display: block; }
+    .zones-overlay-body .z-item {
+      padding: 0.5rem 0.7rem;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+    }
+    .zones-overlay-body .z-item:last-child { border-bottom: none; }
+    .zones-overlay-body .z-name {
+      font-weight: 600;
+      color: var(--text);
+      word-break: break-word;
+    }
+    .zones-overlay-body .z-row {
+      display: flex;
+      flex-direction: column;
+      margin-bottom: 0.35rem;
+      font-size: 0.72rem;
+    }
+    .zones-overlay-body .z-row:last-child { margin-bottom: 0; }
+    .zones-overlay-body .z-lbl {
+      color: var(--text2);
+      font-size: 0.62rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      font-weight: 600;
+    }
+    .zones-overlay-body .z-val { color: var(--text); word-break: break-word; }
+    .zones-overlay-body .z-details {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 6px;
+      padding: 0.45rem 0.55rem;
+      margin-top: 0.35rem;
+    }
+
+    /* Light-Mode */
+    #app-view.av-light .zones-overlay {
+      background: rgba(245,245,245,0.92);
+      border-color: rgba(0,0,0,0.18);
+    }
+    #app-view.av-light .zones-overlay-hdr { border-bottom-color: rgba(0,0,0,0.12); }
+    #app-view.av-light .zones-overlay-hdr-left,
+    #app-view.av-light .zones-overlay-body .z-name,
+    #app-view.av-light .zones-overlay-body .z-val { color: #222; }
+    #app-view.av-light .zones-overlay-body .z-item { border-bottom-color: rgba(0,0,0,0.08); }
+    #app-view.av-light .zones-overlay-body .z-details {
+      background: rgba(0,0,0,0.04);
+      border-color: rgba(0,0,0,0.12);
+    }
+    #app-view.av-light .zones-overlay-body .z-lbl { color: #666; }
+    #app-view.av-light .zones-overlay-chev { color: #555; }
+
     /* === SPLASH === */
     #splash {
       position: fixed;
@@ -365,6 +480,16 @@
       <span class="av-stat watch" id="av-stat" data-i18n="statWatch">● Beobachte</span>
     </div>
     <div class="av-banner" id="av-banner"></div>
+    <div class="zones-overlay" id="zones-overlay">
+      <div class="zones-overlay-hdr" id="zones-overlay-hdr">
+        <div class="zones-overlay-hdr-left">
+          <span id="zones-overlay-text" data-i18n="zonesLoading">Geozonen werden geladen…</span>
+          <span class="zones-overlay-cnt ok" id="zones-overlay-cnt">0</span>
+        </div>
+        <span class="zones-overlay-chev" id="zones-overlay-chev">▼</span>
+      </div>
+      <div class="zones-overlay-body" id="zones-overlay-body"></div>
+    </div>
     <div class="av-lowalt" id="av-lowalt"></div>
     <div id="alarm-map"></div>
     <div class="av-ctrl">
@@ -413,7 +538,7 @@
 
   <script>
     /* [J-VER] Versionsnummer — einzige Stelle */
-    const APP_VER = '0.10';
+    const APP_VER = '0.11';
     document.querySelectorAll('.l-ver').forEach(e => e.textContent = APP_VER);
 
     /* [J-I18N] Internationalisierung — DE/EN, alarm-spezifisch */
@@ -440,6 +565,14 @@
         infoLegal: 'Hinweis: SkyAlarm ist ein Hilfswerkzeug ohne Gewähr. Verantwortung für sicheren Drohnenbetrieb verbleibt vollständig beim Piloten. Daten ohne Garantie.',
         pwaText: 'SkyAlarm als App installieren',
         pwaInstall: 'Installieren',
+        zonesLoading: 'Geozonen werden geladen…',
+        zonesNearby: 'Luftraumzonen in der Nähe',
+        zonesNone: 'Keine Luftraumeinschränkungen erkannt.',
+        zonesCount: n => `Es liegen Einschränkungen durch ${n} geografische Gebiet${n > 1 ? 'e' : ''} vor:`,
+        lblType: 'Typ',
+        lblLower: 'Untere Grenze',
+        lblUpper: 'Obere Grenze',
+        lblLegal: 'Rechtshinweis',
       },
       en: {
         locInit: 'Determining location…',
@@ -463,6 +596,14 @@
         infoLegal: 'Disclaimer: SkyAlarm is an auxiliary tool without warranty. Responsibility for safe drone operation remains entirely with the pilot. Data without guarantee.',
         pwaText: 'Install SkyAlarm as app',
         pwaInstall: 'Install',
+        zonesLoading: 'Loading airspace zones…',
+        zonesNearby: 'Airspace zones nearby',
+        zonesNone: 'No airspace restrictions detected.',
+        zonesCount: n => `${n} geographic area${n > 1 ? 's' : ''} with restrictions:`,
+        lblType: 'Type',
+        lblLower: 'Lower limit',
+        lblUpper: 'Upper limit',
+        lblLegal: 'Legal reference',
       }
     };
     let LANG = localStorage.getItem('skyalarm-lang') || 'de';
@@ -487,6 +628,8 @@
       const stat = $('av-stat');
       if (stat && stat.classList.contains('watch')) stat.textContent = _t('statWatch');
       // Tiefflieger-Header beim nächsten Poll-Tick aktualisiert sich automatisch.
+      // Zonen-Liste neu rendern (Header und Labels sprachabhängig)
+      if (typeof updateZonesOverlay === 'function') updateZonesOverlay();
     }
 
     /* [J-CONFIG] Konstanten und Konfiguration */
@@ -539,11 +682,85 @@
             const rawName = f.name || f.bezeichnung || '';
             const type = f.type_code || f.geozone_art || 'Spezifische Geozone';
             const name = rawName || type;
-            params.push({ name, type });
+            const extRef = f.external_reference || f.identifikation || '';
+            let lower = f.lower_limit_altitude || f.untere_grenze || '0.0';
+            let lowerRef = f.lower_limit_alt_ref || 'AGL';
+            let lowerUnit = f.lower_limit_unit || 'm';
+            if (lower === '0.0' && lowerRef === 'AGL') lower = 'GND';
+            else lower = `${lower} ${lowerUnit} ${lowerRef}`.trim();
+            let upper = f.upper_limit_altitude || f.obere_grenze || '';
+            let upperRef = f.upper_limit_alt_ref || '';
+            let upperUnit = f.upper_limit_unit || '';
+            if (upper === '99999.0' || upper === 'UNL') upper = 'UNL';
+            else if (upper) upper = `${upper} ${upperUnit} ${upperRef}`.trim();
+            else upper = '—';
+            const legal = f.legal_ref || f.rechtliche_grundlage || '—';
+            params.push({
+              name: name + (rawName && extRef && extRef !== 'null' ? ` (${extRef})` : ''),
+              type, lower, upper, legal, color: zoneColor(type)
+            });
           }
         });
         return params;
       } catch (e) { return []; }
+    }
+
+    function zoneColor(t = '') {
+      t = t.toUpperCase();
+      if (t.includes('CONTROL_ZONE') || t.includes('CTR')) return '#f59e0b';
+      if (t.includes('RESTRICTED') || t.includes('PROHIBITED')) return '#ef4444';
+      if (t.includes('DANGER')) return '#f97316';
+      if (t.includes('AIRPORT') || t.includes('HELIPORT')) return '#f59e0b';
+      if (t.includes('NATIONAL_PARK') || t.includes('NATURE')) return '#22c55e';
+      if (t.includes('MILITARY')) return '#a855f7';
+      if (t.includes('POPULATED')) return '#38bdf8';
+      return '#64748b';
+    }
+
+    function getLegalLink(text) {
+      const base = "https://www.dipul.de/homepage/de/informationen/geografische-gebiete/rechtsgrundlagen/";
+      const match = (text || '').match(/\((\d+)\.\)/);
+      if (match && match[1]) {
+        const num = parseInt(match[1], 10);
+        return `${base}#/accordion-1-${num - 1}`;
+      }
+      return base;
+    }
+
+    function renderZones(zones) {
+      const cnt = zones.length;
+      const $cnt = $('zones-overlay-cnt');
+      if ($cnt) {
+        $cnt.textContent = cnt;
+        $cnt.className = 'zones-overlay-cnt' + (cnt === 0 ? ' ok' : '');
+      }
+      const $hdr = $('zones-overlay-text');
+      if ($hdr) $hdr.innerHTML = cnt > 0 ? _t('zonesCount')(cnt) : _t('zonesNone');
+      const $body = $('zones-overlay-body');
+      if (!$body) return;
+      $body.innerHTML = cnt === 0 ? '' : zones.map(z => `
+        <div class="z-item">
+          <div style="display:flex;align-items:center;gap:0.45rem;margin-bottom:0.35rem;">
+            <div style="background:${z.color};width:9px;height:9px;border-radius:50%;flex-shrink:0;"></div>
+            <div class="z-name">${z.name}</div>
+          </div>
+          <div class="z-details">
+            <div class="z-row"><span class="z-lbl">${_t('lblType')}</span><span class="z-val">${z.type}</span></div>
+            <div class="z-row"><span class="z-lbl">${_t('lblLower')}</span><span class="z-val">${z.lower}</span></div>
+            <div class="z-row"><span class="z-lbl">${_t('lblUpper')}</span><span class="z-val">${z.upper}</span></div>
+            <div class="z-row"><span class="z-lbl">${_t('lblLegal')}</span><span class="z-val">
+              <a href="${getLegalLink(z.legal)}" target="_blank" style="color:var(--accent);text-decoration:none;">${z.legal}</a>
+            </span></div>
+          </div>
+        </div>`).join('');
+    }
+
+    async function updateZonesOverlay() {
+      if (AV.lat == null) return;
+      try {
+        const z = await fetchZones(AV.lat, AV.lon, 100);
+        renderZones(z);
+      } catch { renderZones([]); }
     }
 
     /* [J-ICON] Aircraft-SVG — fixed-wing oder Helikopter */
@@ -595,6 +812,7 @@
         AV.radiusCirc.setLatLng([AV.lat, AV.lon]);
         AV.scanCirc.setLatLng([AV.lat, AV.lon]);
         if (AV.posMarker) AV.posMarker.setLatLng([AV.lat, AV.lon]);
+        updateZonesOverlay();
       });
     }
 
@@ -749,6 +967,7 @@
       if (!AV.map) avInitMap();
       else { AV.map.setView([AV.lat, AV.lon], 13); setTimeout(() => AV.map.invalidateSize(), 80); }
       avStartPoll();
+      updateZonesOverlay();
     }
 
     function requestGps() {
@@ -792,7 +1011,13 @@
             AV.scanCirc.setLatLng([AV.lat, AV.lon]);
           }
           if (AV.posMarker) AV.posMarker.setLatLng([AV.lat, AV.lon]);
+          updateZonesOverlay();
         });
+      });
+
+      $('zones-overlay-hdr').addEventListener('click', () => {
+        $('zones-overlay-body').classList.toggle('open');
+        $('zones-overlay-chev').classList.toggle('open');
       });
 
       $('av-zones').addEventListener('click', () => {
