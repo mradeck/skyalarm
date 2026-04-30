@@ -36,8 +36,8 @@ Bewusst **nicht enthalten** (im Gegensatz zu SkyCheck):
 - Geozonen-Liste mit ausführlichen Detailinfos
 
 **Datei:** `skyalarm.html` (Single-File HTML/JS/CSS, ca. 860 Zeilen)
-**Live:** _Netlify-Deployment durch Nutzer einzurichten_
-**Repo:** _GitHub-Repo durch Nutzer anzulegen (vorgeschlagen: `mradeck/skyalarm`)_
+**Live:** https://skyalarm.netlify.app/
+**Repo:** https://github.com/mradeck/skyalarm
 **Aktuell:** v0.10 — Initial-Release, extrahiert aus SkyCheck v0.67
 
 ---
@@ -101,7 +101,11 @@ Alle Endpoints sind **direkt vom Browser erreichbar**; im Gegensatz zu SkyCheck 
    sed -n '/<script>$/,/<\/script>/p' skyalarm.html | head -n -1 | tail -n +2 > /tmp/check.js && node --check /tmp/check.js
    ```
 4. **Commit-Format:** `SkyAlarm vX.XX — Kurzbeschreibung`.
-5. **Push und Verifikation:** wie SkyCheck (`git add … && git commit … && git push`); Netlify-URL nach Setup ergänzen.
+5. **Push und Verifikation:** `git add skyalarm.html && git commit -m 'SkyAlarm vX.XX' && git push`; anschließend Netlify-Deployment per
+   ```bash
+   curl -s "https://skyalarm.netlify.app/skyalarm.html" | grep -o "APP_VER = '0\.[0-9]*'"
+   ```
+   verifizieren (Build-Zeit ca. 20 s).
 6. **Antworten:** Deutsch, wissenschaftlicher Stil, dritte Person.
 
 ---

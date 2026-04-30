@@ -2,6 +2,9 @@
 
 Echtzeit-Tiefflieger-Alarm und Geozonen-Karte für Drohnenpiloten — Single-File-PWA, ohne Build-Schritt.
 
+**Live:** https://skyalarm.netlify.app/
+**Repo:** https://github.com/mradeck/skyalarm
+
 Abgespalten aus dem Schwesterprojekt [SkyCheck](https://enchanting-stardust-f713da.netlify.app/skycheck.html). SkyAlarm fokussiert sich ausschließlich auf den Luftraum-Alarm; Wetter, METAR, KP-Index und Vorhersagen bleiben SkyCheck vorbehalten.
 
 ## Funktionen
@@ -46,11 +49,21 @@ python3 -m http.server 8000
 
 Achtung: Die GPS-API erfordert HTTPS oder `localhost`. Service-Worker-Tests am besten auf einem echten Deployment.
 
-## Deployment auf Netlify
+## Deployment
 
-1. GitHub-Repo `mradeck/skyalarm` anlegen.
-2. In Netlify: *Add new site → Import from Git → GitHub → skyalarm*.
-3. Build-Command leer lassen, Publish-Directory: `.` (oder per `netlify.toml` automatisch).
+Das Projekt ist auf Netlify unter https://skyalarm.netlify.app/ erreichbar und wird bei jedem Push auf den `main`-Branch von `mradeck/skyalarm` automatisch deployed.
+
+**Verifikation der Live-Version:**
+
+```bash
+curl -s "https://skyalarm.netlify.app/skyalarm.html" | grep -o "APP_VER = '0\.[0-9]*'"
+```
+
+Erstmaliges Setup (Referenz, falls eine Spiegelinstanz aufgesetzt werden soll):
+
+1. GitHub-Repo anlegen.
+2. In Netlify: *Add new site → Import from Git → GitHub → Repository wählen*.
+3. Build-Command leer lassen, Publish-Directory: `.` (wird per `netlify.toml` automatisch gesetzt).
 4. Deploy abwarten (~ 20 s); Site-URL notieren.
 
 ## Versionierung
