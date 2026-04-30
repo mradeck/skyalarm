@@ -299,6 +299,24 @@
     }
     .ms-ice.hidden { display: none; }
 
+    .ms-fog {
+      margin-top: 0.35rem;
+      padding-top: 0.35rem;
+      border-top: 1px solid rgba(255,255,255,0.1);
+      color: #ffcc55;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 0.3rem;
+    }
+    .ms-fog.hidden { display: none; }
+    .ms-fog .ms-fog-data {
+      font-size: 0.65rem;
+      opacity: 0.8;
+      font-weight: 500;
+      margin-left: 0.4rem;
+    }
+
     /* Light-Mode Status */
     #app-view.av-light .status-overlay {
       background: rgba(245,245,245,0.92);
@@ -309,6 +327,7 @@
     #app-view.av-light .ms-zone-item.go { color: #198a3a; }
     #app-view.av-light .ms-wind { border-top-color: rgba(0,0,0,0.12); }
     #app-view.av-light .ms-ice { border-top-color: rgba(0,0,0,0.12); color: #b00; }
+    #app-view.av-light .ms-fog { border-top-color: rgba(0,0,0,0.12); color: #b87000; }
     #app-view.av-light .ms-icing { border-top-color: rgba(0,0,0,0.12); color: #444; }
     #app-view.av-light .ms-icing .ok { color: #198a3a; }
     #app-view.av-light .ms-icing .warn { color: #b87000; }
@@ -593,6 +612,7 @@
           <div class="ms-wind" id="ms-wind"></div>
           <div class="ms-icing" id="ms-icing"></div>
           <div class="ms-ice hidden" id="ms-ice"></div>
+          <div class="ms-fog hidden" id="ms-fog"></div>
         </div>
       </div>
       <div class="zones-overlay" id="zones-overlay">
@@ -654,7 +674,7 @@
 
   <script>
     /* [J-VER] Versionsnummer — einzige Stelle */
-    const APP_VER = '0.15';
+    const APP_VER = '0.16';
     document.querySelectorAll('.l-ver').forEach(e => e.textContent = APP_VER);
 
     /* [J-I18N] Internationalisierung — DE/EN, alarm-spezifisch */
@@ -696,6 +716,9 @@
         msNature: 'Naturschutz', msResidential: 'Siedlung', msMilitary: 'Militär',
         msIndustry: 'Industrie/Energie', msHospital: 'Krankenhaus',
         iceAlertShort: (mm, t) => `Eisalarm: ${mm} mm bei ${t} °C`,
+        fogAlertShort: vis => `Nebel: Sicht ${vis < 1000 ? vis + ' m' : (vis / 1000).toFixed(1) + ' km'}`,
+        fogAlertHaze: (vis, sp) => `Dichter Dunst: Sicht ${(vis / 1000).toFixed(1)} km · Δ ${sp.toFixed(1)} °C`,
+        fogAlertSpread: sp => `Nebelbildung wahrscheinlich · Δ ${sp.toFixed(1)} °C`,
         lblIcing50: 'Vereisung 50 m',
         dpCrit: 'Kritische Vereisung',
         dpFog: 'Nebelgefahr / Klareis',
@@ -738,6 +761,9 @@
         msNature: 'Nature Reserve', msResidential: 'Residential', msMilitary: 'Military',
         msIndustry: 'Industry/Energy', msHospital: 'Hospital',
         iceAlertShort: (mm, t) => `Ice alert: ${mm} mm at ${t} °C`,
+        fogAlertShort: vis => `Fog: visibility ${vis < 1000 ? vis + ' m' : (vis / 1000).toFixed(1) + ' km'}`,
+        fogAlertHaze: (vis, sp) => `Dense haze: visibility ${(vis / 1000).toFixed(1)} km · Δ ${sp.toFixed(1)} °C`,
+        fogAlertSpread: sp => `Fog formation likely · Δ ${sp.toFixed(1)} °C`,
         lblIcing50: 'Icing 50 m',
         dpCrit: 'Critical icing risk',
         dpFog: 'Fog risk / Clear ice',
@@ -1079,6 +1105,48 @@
         } else {
           $i.classList.add('hidden');
           $i.innerHTML = '';
+        }
+      }
+
+      // Nebelalarm: Sicht < 1 km (WMO/DWD-Definition), dichter Dunst < 4 km mit Spread < 1 °C,
+      // oder BrightSky-Condition "fog". Spread aus Temperatur und Taupunkt (ggf. via Magnus-Tetens).
+      const $f = $('ms-fog');
+      if ($f) {
+        let trigger = false, html = '';
+        if (weather) {
+          const vis = weather.visibility;            // Meter
+          const cond = (weather.condition || '').toLowerCase();
+          const t = weather.temperature;
+          let td = weather.dew_point;
+          if (td == null && t != null && weather.relative_humidity != null) {
+            td = calcDewPoint(t, weather.relative_humidity);
+          }
+          const spread = (t != null && td != null) ? +(t - td).toFixed(1) : null;
+
+          if (cond === 'fog' || (vis != null && vis < 1000)) {
+            // Echter Nebel: Sicht unter 1 km
+            trigger = true;
+            const visShown = (vis != null) ? vis : 500;
+            html = `🌫 ${_t('fogAlertShort')(visShown)}`;
+            if (spread != null) {
+              html += `<span class="ms-fog-data">Δ ${spread.toFixed(1)} °C</span>`;
+            }
+          } else if (vis != null && vis < 4000 && spread != null && spread < 1) {
+            // Dichter Dunst mit hoher Sättigung
+            trigger = true;
+            html = `🌫 ${_t('fogAlertHaze')(vis, spread)}`;
+          } else if (spread != null && spread < 0.5 && (weather.wind_speed ?? 0) < 2 && (t ?? 99) < 15) {
+            // Nebelbildungs-Bedingungen ohne Sichtwert (z. B. Strahlungsnebel)
+            trigger = true;
+            html = `🌫 ${_t('fogAlertSpread')(spread)}`;
+          }
+        }
+        if (trigger) {
+          $f.classList.remove('hidden');
+          $f.innerHTML = html;
+        } else {
+          $f.classList.add('hidden');
+          $f.innerHTML = '';
         }
       }
     }

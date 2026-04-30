@@ -10,35 +10,38 @@
 2. **Projektpfad auf dem Mac:** `/Users/michaelradeck/Downloads/code/cowork/skyalarm-project` — kein anderer Pfad ist korrekt.
 3. **Version prüfen:** `grep APP_VER skyalarm.html` — bei Abweichung zur erwarteten Version:
    ```bash
-   git fetch origin && git reset --hard origin/master
+   git fetch origin && git reset --hard origin/main
    ```
-4. **Antwort-Titel:** Jede Antwort beginnt mit Datum, Uhrzeit und aktueller Versionsnummer (z. B. `## 2026-04-30 21:00 — SkyAlarm v0.10`).
+4. **Antwort-Titel:** Jede Antwort beginnt mit Datum, Uhrzeit und aktueller Versionsnummer (z. B. `## 2026-05-01 00:30 — SkyAlarm v0.16`).
+5. **Dokumentationspflicht:** Bei jeder Versionserhöhung sind im selben Schritt die Versions-Historie und ggf. die Architektur-Sektion dieser Datei zu aktualisieren — ohne gesonderte Aufforderung.
 
 ---
 
 ## Projektübersicht
 
-**SkyAlarm** ist eine eigenständige Single-File-Webanwendung für Echtzeit-Tiefflieger-Alarme im Drohnenflug. Sie wurde aus der Alarm-View des Schwesterprojekts **SkyCheck** (https://enchanting-stardust-f713da.netlify.app/skycheck.html) abgespalten und konzentriert sich ausschließlich auf:
+**SkyAlarm** ist eine eigenständige Single-File-Webanwendung für Echtzeit-Tiefflieger-Alarme im Drohnenflug. Sie wurde aus der Alarm-View des Schwesterprojekts **SkyCheck** (https://enchanting-stardust-f713da.netlify.app/skycheck.html) abgespalten und konzentriert sich auf:
 
 - **Tiefflieger-Erkennung** via ADS-B (airplanes.live), Schwellwert 300 m AGL, 2 km Radius
 - **Akustischer und vibrierender Alarm** bei Annäherung
-- **Geozonen-Visualisierung** über DiPUL WMS (alle Layer)
+- **Geozonen-Visualisierung** über DiPUL WMS (alle Layer), inkl. ausklappbarer Detailliste
+- **Kompakt-Status-Overlay** (oben rechts): Zonen-Kurzlabels, Wind/Böen, Vereisungs- und Nebelprognose 50 m AGL
+- **Eisalarm** (Niederschlag bei T ≤ 0 °C) und **Nebelalarm** (Sicht < 1 km bzw. Spread-basiert)
+- **Wetterdaten** über BrightSky (Wind, Böen, Temperatur, Taupunkt, Niederschlag, Sicht)
 - **Karten-Stilwechsel** (Dark/OSM/Satellit/Hell), Hell-/Dunkel-Modus
 - **GPS-gestützte Positionsbestimmung** mit Doppelklick-Korrektur
 - **PWA-Funktionalität** (Installierbar, Service Worker, Offline-Shell)
 
 Bewusst **nicht enthalten** (im Gegensatz zu SkyCheck):
-- Wettersektion (Wind, Niederschlag, Temperatur, Wolkenbasis)
 - KP-Index, Geomagnetische Aktivität
 - METAR/TAF-Daten (NOAA AWC)
 - Adress-/Ortssuche (Photon)
 - 48-Stunden-/5-Tage-Vorhersage
-- Geozonen-Liste mit ausführlichen Detailinfos
+- Volle Wolkenbasis-Berechnung mit allen METAR-Layern
 
-**Datei:** `skyalarm.html` (Single-File HTML/JS/CSS, ca. 860 Zeilen)
+**Datei:** `skyalarm.html` (Single-File HTML/JS/CSS, ~1170 Zeilen)
 **Live:** https://skyalarm.netlify.app/
-**Repo:** https://github.com/mradeck/skyalarm
-**Aktuell:** v0.10 — Initial-Release, extrahiert aus SkyCheck v0.67
+**Repo:** https://github.com/mradeck/skyalarm (Default-Branch: `main`)
+**Aktuell:** v0.16 — Eigenständiger Nebelalarm im Kompakt-Overlay
 
 ---
 
@@ -50,6 +53,7 @@ Bewusst **nicht enthalten** (im Gegensatz zu SkyCheck):
 |---|---|---|---|
 | **airplanes.live** | `https://api.airplanes.live/v2/point/{lat}/{lon}/10` | ja | Live-ADS-B-Feed (10 NM Radius, JSON) |
 | **DiPUL WMS** | `https://uas-betrieb.de/geoservices/dipul/wms` | ja (für GetFeatureInfo & Tiles) | Luftraumzonen Deutschland |
+| **BrightSky** | `https://api.brightsky.dev/weather` | ja | DWD-Wetter (Wind, Böen, Temperatur, Taupunkt, Niederschlag, Sicht) |
 | **CARTO Basemaps** | `basemaps.cartocdn.com` | – | Dark/Hell-Tile-Layer |
 | **OpenStreetMap** | `tile.openstreetmap.org` | – | OSM-Tile-Layer |
 | **ESRI World Imagery** | `server.arcgisonline.com` | – | Satellit-Tile-Layer |
@@ -65,6 +69,9 @@ Alle Endpoints sind **direkt vom Browser erreichbar**; im Gegensatz zu SkyCheck 
 | `[J-CONFIG]` | DiPUL/ADSB-URLs, Layer-Listen |
 | `[J-STATE]` | `AV`-Objekt mit gesamtem Anwendungszustand |
 | `[J-FETCHZONES]` | DiPUL WMS GetFeatureInfo (δ-Formel `radiusM × 101 / (4 × 111320)`) |
+| `[J-DEWPOINT]` | `calcDewPoint` — Magnus-Tetens-Formel (Taupunkt aus T und RH) |
+| `[J-FETCHWEATHER]` | BrightSky-Abfrage; Temperatur/Taupunkt-Konvertierung Kelvin → °C |
+| `[J-RENDER-STATUS]` | `renderStatusOverlay` — Zonen-Kurzlabels, Wind/Böen, Vereisungsprognose 50 m, Eisalarm, Nebelalarm |
 | `[J-ICON]` | `_acSvg` — Aircraft-/Helikopter-SVG-Icon |
 | `[J-DIST]` | Haversine-Distanz |
 | `[J-MAP-INIT]` | `avInitMap` — Karte, Tile-Layer, Kreise, Marker |
@@ -89,12 +96,14 @@ Alle Endpoints sind **direkt vom Browser erreichbar**; im Gegensatz zu SkyCheck 
 | `lightMode` | bool | Hell-Modus aktiv |
 | `alarmOn` | bool | Akut-Alarm aktiv (Beep läuft) |
 | `trails` | Object | Per-Hex Trail-Punktarrays |
+| `lastWeather` | Object | Letzter BrightSky-Datensatz (Wind, T, Td, Niederschlag, Sicht, Condition) |
+| `lastZones` | Array | Letzte DiPUL-Zonenliste (Cache für Sprachwechsel-Re-Render) |
 
 ---
 
 ## Arbeitsregeln
 
-1. **Versionsnummer:** Jede Änderung an `skyalarm.html` erhöht `const APP_VER` (Zeile ~415) um 0.01. Keine Ausnahme.
+1. **Versionsnummer:** Jede Änderung an `skyalarm.html` erhöht `const APP_VER` (Zeile ~677, Anker `[J-VER]`) um 0.01. Keine Ausnahme.
 2. **Patches:** Read/Edit-Tools direkt auf `skyalarm.html` anwenden; Anker-Eindeutigkeit vorab per `grep` verifizieren.
 3. **JS-Syntaxcheck:** vor jedem Commit
    ```bash
@@ -130,9 +139,11 @@ Für Recherche, Visualisierung, Computer-Use; Code-Änderungen vorzugsweise via 
 |---|---|---|
 | ADS-B-Feed antwortet leer | Rate-Limit von airplanes.live | Poll-Intervall ggf. auf 3000 ms erhöhen |
 | Geozonen-Layer schwarz | DiPUL WMS-Server kurzzeitig down | Service-Status prüfen; Retry abwarten |
+| BrightSky liefert Kelvin | API-Default für `units` ist Kelvin | In `fetchWeather` werden `temperature` und `dew_point` per `- 273.15` nach °C konvertiert |
 | Beep-Funktion stumm | iOS/Safari-AudioContext erst nach User-Geste aktiv | Beim ersten Tap aktiviert sich `_avCtx` automatisch |
 | GPS-Genauigkeit gering | iOS-Browser-Standortabfrage blockiert | `enableHighAccuracy: true` ist gesetzt; Standort manuell per Doppelklick korrigieren |
 | Stale-Service-Worker | SW cached alte HTML | Hard-Reload (Cmd+Shift+R) oder DevTools → Application → Unregister |
+| Cowork-Sandbox kann nicht committen | `virtiofs` blockiert das Löschen von `.git/index.lock` | Commit/Push aus dem Mac-Terminal oder via Claude Code CLI ausführen |
 
 ---
 
@@ -141,6 +152,12 @@ Für Recherche, Visualisierung, Computer-Use; Code-Änderungen vorzugsweise via 
 | Version | Änderungen |
 |---|---|
 | v0.10 | Initial-Release: Extraktion aus SkyCheck v0.67 (Alarm-View 1:1), DE/EN-I18N, GPS-Splash, PWA-Hooks, Info-Modal |
+| v0.11 | Geozonen-Liste als ausklappbares Overlay oben links (kollabierbar) |
+| v0.12 | Kompakt-Overlay (Zonen-Kurzlabels, Wind/Böen, Eisalarm) oberhalb der Detailliste; Wetter-Anbindung an BrightSky |
+| v0.13 | Overlay-Stapel von oben links auf oben rechts verlegt; Höhe hält die `av-ctrl`-Leiste frei |
+| v0.14 | Vereisungs- und Nebelgefahr für 50 m AGL im Kompakt-Overlay (Magnus-Tetens-Taupunkt + Standard-Lapse-Rate für T/Td) |
+| v0.15 | Fix: `dew_point` in `fetchWeather` von Kelvin auf °C konvertiert (zuvor falsche Magnitudendarstellung) |
+| v0.16 | Eigenständiger Nebelalarm (`#ms-fog`): Trigger bei Sicht < 1 km, dichtem Dunst < 4 km mit Spread < 1 °C oder klassischen Nebelbildungs-Bedingungen (Spread < 0,5 °C, Wind < 2 m/s) |
 
 ---
 
