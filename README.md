@@ -39,7 +39,7 @@ Single-File-PWA. Die einzige zu ändernde Datei ist `skyalarm.html`. Alle Stile,
 
 ```bash
 # Statischen Server starten (z. B. via Python)
-cd skyalarm_project
+cd skyalarm-project
 python3 -m http.server 8000
 # Öffnen: http://localhost:8000/skyalarm.html
 ```
@@ -48,8 +48,8 @@ Achtung: Die GPS-API erfordert HTTPS oder `localhost`. Service-Worker-Tests am b
 
 ## Deployment auf Netlify
 
-1. GitHub-Repo `mradeck/skyalarm-project` anlegen.
-2. In Netlify: *Add new site → Import from Git → GitHub → skyalarm-project*.
+1. GitHub-Repo `mradeck/skyalarm` anlegen.
+2. In Netlify: *Add new site → Import from Git → GitHub → skyalarm*.
 3. Build-Command leer lassen, Publish-Directory: `.` (oder per `netlify.toml` automatisch).
 4. Deploy abwarten (~ 20 s); Site-URL notieren.
 

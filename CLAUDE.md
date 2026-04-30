@@ -7,7 +7,7 @@
 1. **Umgebung erkennen:**
    - **Claude Code** (Terminal): Direkter Dateizugriff — sofort arbeitsfähig.
    - **Cowork** (Desktop-App): Folder-Mount sicherstellen, Overlay-Einschränkungen beachten.
-2. **Projektpfad auf dem Mac:** `/Users/michaelradeck/Downloads/code/cowork/skyalarm_project` — kein anderer Pfad ist korrekt.
+2. **Projektpfad auf dem Mac:** `/Users/michaelradeck/Downloads/code/cowork/skyalarm-project` — kein anderer Pfad ist korrekt.
 3. **Version prüfen:** `grep APP_VER skyalarm.html` — bei Abweichung zur erwarteten Version:
    ```bash
    git fetch origin && git reset --hard origin/master
@@ -37,7 +37,7 @@ Bewusst **nicht enthalten** (im Gegensatz zu SkyCheck):
 
 **Datei:** `skyalarm.html` (Single-File HTML/JS/CSS, ca. 860 Zeilen)
 **Live:** _Netlify-Deployment durch Nutzer einzurichten_
-**Repo:** _GitHub-Repo durch Nutzer anzulegen (vorgeschlagen: `mradeck/skyalarm-project`)_
+**Repo:** _GitHub-Repo durch Nutzer anzulegen (vorgeschlagen: `mradeck/skyalarm`)_
 **Aktuell:** v0.10 — Initial-Release, extrahiert aus SkyCheck v0.67
 
 ---
@@ -111,7 +111,7 @@ Alle Endpoints sind **direkt vom Browser erreichbar**; im Gegensatz zu SkyCheck 
 ### Primär: Claude Code (CLI)
 
 ```bash
-cd ~/Downloads/code/cowork/skyalarm_project && claude
+cd ~/Downloads/code/cowork/skyalarm-project && claude
 ```
 
 ### Sekundär: Cowork (Desktop)
