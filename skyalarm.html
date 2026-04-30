@@ -205,17 +205,19 @@
     /* Aircraft popup */
     .ac-popup b { color: var(--accent); }
 
-    /* === TOP-LEFT-STACK: Kompakt-Overlay + Detail-Overlay === */
+    /* === TOP-RIGHT-STACK: Kompakt-Overlay + Detail-Overlay ===
+       Position oben rechts, aber unterhalb der Topbar. Höhe so begrenzt,
+       dass die rechte Steuerleiste (av-ctrl, ca. 230 px ab Boden) frei bleibt. */
     .tl-stack {
       position: absolute;
       top: 44px;
-      left: 8px;
+      right: 8px;
       z-index: 1003;
       display: flex;
       flex-direction: column;
       gap: 8px;
-      max-width: min(300px, calc(100% - 60px));
-      max-height: calc(100vh - 80px);
+      width: min(300px, calc(100% - 60px));
+      max-height: calc(100vh - 290px);
     }
 
     /* === STATUS-OVERLAY (kompakt) === */
@@ -627,7 +629,7 @@
 
   <script>
     /* [J-VER] Versionsnummer — einzige Stelle */
-    const APP_VER = '0.12';
+    const APP_VER = '0.13';
     document.querySelectorAll('.l-ver').forEach(e => e.textContent = APP_VER);
 
     /* [J-I18N] Internationalisierung — DE/EN, alarm-spezifisch */
