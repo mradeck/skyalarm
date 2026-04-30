@@ -1,0 +1,22 @@
+# Netlify-Konfiguration für SkyAlarm
+# Kein Build-Schritt nötig: Single-File-PWA wird direkt aus dem Repository ausgeliefert.
+
+[build]
+  publish = "."
+
+# Root → /skyalarm.html (saubere URL ohne Endung)
+[[redirects]]
+  from = "/"
+  to = "/skyalarm.html"
+  status = 200
+
+[[headers]]
+  for = "/sw.js"
+  [headers.values]
+    Cache-Control = "no-cache, no-store, must-revalidate"
+    Service-Worker-Allowed = "/"
+
+[[headers]]
+  for = "/manifest.json"
+  [headers.values]
+    Cache-Control = "public, max-age=3600"

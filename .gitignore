@@ -1,0 +1,20 @@
+# macOS
+.DS_Store
+
+# Claude/Cowork lokale Konfiguration
+.claude/
+
+# Netlify lokale Builds / Cache
+.netlify/
+
+# Editor-Dateien
+.vscode/
+*.swp
+*.swo
+
+# Diagnose- und Scratch-Artefakte
+diag_out.txt
+*_extract.txt
+patch*.py
+temp.js
+temp*.js

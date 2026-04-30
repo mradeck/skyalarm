@@ -1,0 +1,75 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#0a1628"/>
+      <stop offset="100%" stop-color="#0d2137"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#00b4d8"/>
+      <stop offset="100%" stop-color="#0096c7"/>
+    </linearGradient>
+    <linearGradient id="check" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#4ade80"/>
+      <stop offset="100%" stop-color="#22c55e"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background rounded square -->
+  <rect width="512" height="512" rx="108" ry="108" fill="url(#bg)"/>
+
+  <!-- Subtle grid pattern -->
+  <g opacity="0.06" stroke="#00b4d8" stroke-width="0.8" fill="none">
+    <line x1="128" y1="80" x2="128" y2="432"/>
+    <line x1="192" y1="80" x2="192" y2="432"/>
+    <line x1="256" y1="80" x2="256" y2="432"/>
+    <line x1="320" y1="80" x2="320" y2="432"/>
+    <line x1="384" y1="80" x2="384" y2="432"/>
+    <line x1="80" y1="128" x2="432" y2="128"/>
+    <line x1="80" y1="192" x2="432" y2="192"/>
+    <line x1="80" y1="256" x2="432" y2="256"/>
+    <line x1="80" y1="320" x2="432" y2="320"/>
+    <line x1="80" y1="384" x2="432" y2="384"/>
+  </g>
+
+  <!-- Drone body (center top area) -->
+  <g transform="translate(256, 195)">
+    <!-- Arms -->
+    <line x1="-58" y1="-38" x2="-28" y2="-10" stroke="#00b4d8" stroke-width="5" stroke-linecap="round" opacity="0.9"/>
+    <line x1="58" y1="-38" x2="28" y2="-10" stroke="#00b4d8" stroke-width="5" stroke-linecap="round" opacity="0.9"/>
+    <line x1="-58" y1="28" x2="-28" y2="8" stroke="#00b4d8" stroke-width="5" stroke-linecap="round" opacity="0.9"/>
+    <line x1="58" y1="28" x2="28" y2="8" stroke="#00b4d8" stroke-width="5" stroke-linecap="round" opacity="0.9"/>
+
+    <!-- Propeller circles -->
+    <circle cx="-66" cy="-44" r="22" fill="none" stroke="#00b4d8" stroke-width="2.5" opacity="0.5" stroke-dasharray="4 3"/>
+    <circle cx="66" cy="-44" r="22" fill="none" stroke="#00b4d8" stroke-width="2.5" opacity="0.5" stroke-dasharray="4 3"/>
+    <circle cx="-66" cy="32" r="22" fill="none" stroke="#00b4d8" stroke-width="2.5" opacity="0.5" stroke-dasharray="4 3"/>
+    <circle cx="66" cy="32" r="22" fill="none" stroke="#00b4d8" stroke-width="2.5" opacity="0.5" stroke-dasharray="4 3"/>
+
+    <!-- Propeller hubs -->
+    <circle cx="-66" cy="-44" r="4" fill="#00b4d8" opacity="0.8"/>
+    <circle cx="66" cy="-44" r="4" fill="#00b4d8" opacity="0.8"/>
+    <circle cx="-66" cy="32" r="4" fill="#00b4d8" opacity="0.8"/>
+    <circle cx="66" cy="32" r="4" fill="#00b4d8" opacity="0.8"/>
+
+    <!-- Body -->
+    <rect x="-24" y="-14" width="48" height="26" rx="8" fill="url(#accent)" opacity="0.9"/>
+
+    <!-- Camera dot -->
+    <circle cx="0" cy="0" r="5" fill="#0a1628" opacity="0.7"/>
+  </g>
+
+  <!-- Shield / check area -->
+  <g transform="translate(256, 340)">
+    <!-- Shield outline -->
+    <path d="M0,-52 C40,-52 60,-42 60,-42 L60,-5 C60,28 30,52 0,65 C-30,52 -60,28 -60,-5 L-60,-42 C-60,-42 -40,-52 0,-52Z"
+          fill="none" stroke="url(#check)" stroke-width="4" opacity="0.7"/>
+
+    <!-- Checkmark -->
+    <path d="M-20,2 L-6,18 L24,-14"
+          fill="none" stroke="url(#check)" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+
+  <!-- Glow effect behind drone -->
+  <circle cx="256" cy="195" r="50" fill="#00b4d8" opacity="0.04"/>
+  <circle cx="256" cy="195" r="85" fill="#00b4d8" opacity="0.02"/>
+</svg>

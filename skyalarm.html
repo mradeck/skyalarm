@@ -1,0 +1,861 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#0a1628">
+  <meta name="description" content="SkyAlarm — Echtzeit-Tiefflieger-Alarm und Geozonen-Karte für Drohnenpiloten">
+  <title>SkyAlarm — Tiefflieger-Alarm</title>
+  <link rel="manifest" href="/manifest.json">
+  <link rel="icon" type="image/png" sizes="192x192" href="/icon-192x192.png">
+  <link rel="apple-touch-icon" href="/icon-192x192.png">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+  <style>
+    :root {
+      --bg: #0a1628;
+      --panel: #0f1f3a;
+      --text: #e8eef7;
+      --text2: #9aacc6;
+      --border: rgba(255,255,255,0.12);
+      --accent: #00b4d8;
+      --radius: 10px;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; height: 100%; background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; overflow: hidden; }
+
+    /* === APP-VIEW === */
+    #app-view {
+      position: fixed;
+      inset: 0;
+      z-index: 1;
+    }
+
+    #alarm-map {
+      position: absolute;
+      inset: 0;
+    }
+
+    .av-topbar {
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      z-index: 1002;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.4rem 0.6rem;
+      background: rgba(15, 15, 15, 0.82);
+      backdrop-filter: blur(4px);
+    }
+
+    .av-lang {
+      background: rgba(255,255,255,0.1);
+      border: 1px solid rgba(255,255,255,0.2);
+      color: #fff;
+      border-radius: 6px;
+      padding: 0.25rem 0.55rem;
+      cursor: pointer;
+      font-size: 1rem;
+      line-height: 1;
+      white-space: nowrap;
+    }
+
+    .av-loc {
+      flex: 1;
+      font-size: 0.75rem;
+      color: rgba(255,255,255,0.75);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      min-width: 0;
+    }
+
+    .av-stat {
+      font-size: 0.72rem;
+      padding: 0.15rem 0.55rem;
+      border-radius: 20px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .av-stat.watch {
+      background: rgba(60, 200, 80, 0.25);
+      color: #4f4;
+      border: 1px solid #4f4;
+    }
+
+    .av-stat.alarm {
+      background: rgba(255, 50, 50, 0.35);
+      color: #f55;
+      border: 1px solid #f55;
+      animation: av-blink 0.6s ease-in-out infinite;
+    }
+
+    @keyframes av-blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.25; }
+    }
+
+    .av-banner {
+      position: absolute;
+      top: 36px; left: 0; right: 0;
+      z-index: 1003;
+      background: rgba(200, 0, 0, 0.92);
+      color: #fff;
+      padding: 0.45rem 1rem;
+      text-align: center;
+      font-size: 0.82rem;
+      font-weight: 700;
+      display: none;
+    }
+    .av-banner.show { display: block; }
+
+    .av-lowalt {
+      position: absolute;
+      bottom: 90px;
+      left: 8px;
+      right: 52px;
+      z-index: 1003;
+      background: rgba(0,0,0,0.82);
+      border: 1px solid rgba(255,170,0,0.6);
+      border-radius: 8px;
+      padding: 0.4rem 0.6rem;
+      font-size: 0.72rem;
+      color: #ffaa00;
+      max-height: 22vh;
+      overflow-y: auto;
+      display: none;
+    }
+    .av-lowalt.show { display: block; }
+    .av-lowalt-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 0.15rem 0;
+      border-bottom: 1px solid rgba(255,170,0,0.15);
+    }
+    .av-lowalt-row:last-child { border-bottom: none; }
+    .av-lowalt-hdr {
+      font-weight: 700;
+      margin-bottom: 0.2rem;
+      font-size: 0.68rem;
+      opacity: 0.7;
+    }
+
+    .av-ctrl {
+      position: absolute;
+      bottom: 38px;
+      right: 8px;
+      z-index: 1002;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .av-btn {
+      width: 34px;
+      height: 34px;
+      background: rgba(0, 0, 0, 0.72);
+      border: 1px solid rgba(255, 255, 255, 0.22);
+      color: #fff;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 15px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+      line-height: 1;
+    }
+    .av-btn.on {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    /* Light-Mode */
+    #app-view.av-light .av-topbar { background: rgba(240, 240, 240, 0.9); }
+    #app-view.av-light .av-lang,
+    #app-view.av-light .av-btn {
+      background: rgba(0, 0, 0, 0.08);
+      border-color: rgba(0, 0, 0, 0.18);
+      color: #222;
+    }
+    #app-view.av-light .av-loc { color: #333; }
+    #app-view.av-light .av-stat.watch {
+      background: rgba(0, 160, 40, 0.15);
+      color: #080;
+    }
+    #app-view.av-light .av-lowalt {
+      background: rgba(255,255,255,0.92);
+      border-color: rgba(200,130,0,0.5);
+      color: #b87000;
+    }
+
+    /* Tooltip an Tiefflieger-Markern */
+    .av-tt-low {
+      background: rgba(255,170,0,0.92) !important;
+      color: #000 !important;
+      border: none !important;
+      font-size: 0.7rem;
+      font-weight: 700;
+      padding: 1px 4px !important;
+      border-radius: 3px !important;
+      box-shadow: none !important;
+    }
+    .av-tt-low::before { display: none !important; }
+
+    /* Aircraft popup */
+    .ac-popup b { color: var(--accent); }
+
+    /* === SPLASH === */
+    #splash {
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
+      background: var(--bg);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 0.8rem;
+      padding: 1rem;
+    }
+    #splash.hidden { display: none; }
+    #splash h1 {
+      margin: 0;
+      font-size: 1.7rem;
+      font-weight: 800;
+      letter-spacing: 0.3px;
+      color: var(--accent);
+    }
+    #splash h1 sup {
+      font-size: 0.55rem;
+      color: var(--text2);
+      font-weight: 600;
+      margin-left: 0.4rem;
+      vertical-align: super;
+    }
+    #splash p {
+      margin: 0;
+      color: var(--text2);
+      font-size: 0.85rem;
+      text-align: center;
+      max-width: 22rem;
+    }
+    #splash .splash-btn {
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: var(--radius);
+      padding: 0.6rem 1.3rem;
+      font-size: 0.95rem;
+      font-weight: 700;
+      cursor: pointer;
+      margin-top: 0.5rem;
+    }
+    #splash .splash-btn.secondary {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text);
+      margin-top: 0;
+    }
+
+    /* === INFO MODAL === */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 10001;
+      background: rgba(0,0,0,0.7);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+    }
+    .modal-overlay.hidden { display: none; }
+    .modal-content {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      max-width: 28rem;
+      width: 100%;
+      max-height: 80vh;
+      overflow-y: auto;
+      padding: 1.2rem 1.4rem;
+      color: var(--text);
+    }
+    .modal-content h2 {
+      margin: 0 0 0.6rem;
+      font-size: 1.05rem;
+      color: var(--accent);
+    }
+    .modal-content p {
+      font-size: 0.85rem;
+      color: var(--text2);
+      line-height: 1.55;
+      margin: 0 0 0.7rem;
+    }
+    .modal-close {
+      float: right;
+      background: transparent;
+      border: none;
+      color: var(--text2);
+      font-size: 1.4rem;
+      cursor: pointer;
+      line-height: 1;
+    }
+    .modal-content a { color: var(--accent); text-decoration: none; }
+    .modal-content a:hover { text-decoration: underline; }
+    .modal-srcs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-top: 0.5rem;
+      font-size: 0.78rem;
+    }
+    .modal-srcs a {
+      background: rgba(0,180,216,0.1);
+      padding: 0.25rem 0.55rem;
+      border-radius: 6px;
+    }
+
+    /* === PWA BANNER === */
+    .pwa-banner {
+      position: absolute;
+      left: 8px;
+      right: 8px;
+      bottom: 8px;
+      z-index: 1004;
+      padding: 0.6rem 0.8rem;
+      background: var(--panel);
+      border: 1px solid var(--accent);
+      border-radius: var(--radius);
+      display: none;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.7rem;
+      font-size: 0.8rem;
+    }
+    .pwa-banner.show { display: flex; }
+    .pwa-actions { display: flex; gap: 0.4rem; flex-shrink: 0; }
+    .pwa-actions button:first-child {
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      padding: 0.35rem 0.7rem;
+      cursor: pointer;
+      font-weight: 700;
+    }
+    .pwa-actions button:last-child {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 6px;
+      padding: 0.3rem 0.45rem;
+      cursor: pointer;
+      opacity: 0.7;
+    }
+  </style>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+</head>
+<body>
+
+  <div id="app-view">
+    <div class="av-topbar">
+      <button class="av-lang" id="btn-lang" data-i18n-title="langTitle" title="Sprache">🇩🇪</button>
+      <span class="av-loc" id="av-loc" data-i18n="locInit">Standort wird ermittelt…</span>
+      <span class="av-stat watch" id="av-stat" data-i18n="statWatch">● Beobachte</span>
+    </div>
+    <div class="av-banner" id="av-banner"></div>
+    <div class="av-lowalt" id="av-lowalt"></div>
+    <div id="alarm-map"></div>
+    <div class="av-ctrl">
+      <button class="av-btn" id="av-gps" data-i18n-title="ctrlGps" title="GPS">⊕</button>
+      <button class="av-btn on" id="av-zones" data-i18n-title="ctrlZones" title="Geozonen">⬡</button>
+      <button class="av-btn" id="av-style" data-i18n-title="ctrlStyle" title="Kartenstil">⧉</button>
+      <button class="av-btn" id="av-theme" data-i18n-title="ctrlTheme" title="Hell/Dunkel">☀</button>
+      <button class="av-btn" id="av-info" data-i18n-title="ctrlInfo" title="Info">ⓘ</button>
+    </div>
+    <div class="pwa-banner" id="pwa-banner">
+      <span>📲 <span data-i18n="pwaText">SkyAlarm als App installieren</span></span>
+      <div class="pwa-actions">
+        <button id="pwa-install" data-i18n="pwaInstall">Installieren</button>
+        <button id="pwa-dismiss" aria-label="Schließen">✕</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="splash">
+    <h1>SkyAlarm <sup class="l-ver"></sup></h1>
+    <p data-i18n="splashIntro">Echtzeit-Tiefflieger-Alarm und Geozonen-Karte. Für die volle Funktion wird der aktuelle Standort benötigt.</p>
+    <button class="splash-btn" id="splash-gps" data-i18n="splashGps">Standort verwenden</button>
+    <button class="splash-btn secondary" id="splash-default" data-i18n="splashDefault">Mit Standardposition starten (München)</button>
+    <p id="splash-status" style="font-size:0.75rem;opacity:0.65;"></p>
+  </div>
+
+  <div id="info-modal" class="modal-overlay hidden">
+    <div class="modal-content">
+      <button class="modal-close" id="info-close">×</button>
+      <h2 data-i18n="infoTitle">Über SkyAlarm</h2>
+      <p data-i18n="infoP1">SkyAlarm meldet in Echtzeit Tiefflieger im Umkreis und visualisiert Luftraumzonen (DiPUL). Doppelklick auf die Karte verschiebt das Alarm-Zentrum.</p>
+      <p data-i18n="infoP2">Bei Annäherung eines Flugzeugs unter ca. 300 m Flughöhe innerhalb 2 km wird ein akustisches und vibrierendes Alarmsignal ausgelöst.</p>
+      <p data-i18n="infoLegal">Hinweis: SkyAlarm ist ein Hilfswerkzeug ohne Gewähr. Verantwortung für sicheren Drohnenbetrieb verbleibt vollständig beim Piloten. Daten ohne Garantie.</p>
+      <div class="modal-srcs">
+        <a href="https://www.dipul.de/" target="_blank">DiPUL WMS</a>
+        <a href="https://airplanes.live/" target="_blank">airplanes.live</a>
+        <a href="https://leafletjs.com/" target="_blank">Leaflet</a>
+        <a href="https://www.openstreetmap.org/" target="_blank">OpenStreetMap</a>
+        <a href="https://carto.com/attributions" target="_blank">CARTO</a>
+        <a href="https://www.michael-radeck.de" target="_blank">michael-radeck.de</a>
+        <a href="https://ko-fi.com/mradeck/tip" target="_blank">☕ Ko-fi</a>
+      </div>
+      <p style="font-size:0.7rem;opacity:0.55;margin-top:0.8rem;">SkyAlarm v<span class="l-ver"></span> · <a href="https://enchanting-stardust-f713da.netlify.app/skycheck.html" target="_blank">SkyCheck</a></p>
+    </div>
+  </div>
+
+  <script>
+    /* [J-VER] Versionsnummer — einzige Stelle */
+    const APP_VER = '0.10';
+    document.querySelectorAll('.l-ver').forEach(e => e.textContent = APP_VER);
+
+    /* [J-I18N] Internationalisierung — DE/EN, alarm-spezifisch */
+    const I18N = {
+      de: {
+        locInit: 'Standort wird ermittelt…',
+        statWatch: '● Beobachte',
+        statAlarm: n => '⚠ ' + n + ' Flugzeug' + (n > 1 ? 'e' : ''),
+        ctrlGps: 'Aktuellen Standort verwenden',
+        ctrlZones: 'Geozonen ein/aus',
+        ctrlStyle: 'Kartenstil wechseln',
+        ctrlTheme: 'Hell/Dunkel umschalten',
+        ctrlInfo: 'Über SkyAlarm',
+        langTitle: 'Sprache wechseln',
+        lowAltHdr: '⚠ Tiefflieger (<300 m)',
+        splashIntro: 'Echtzeit-Tiefflieger-Alarm und Geozonen-Karte. Für die volle Funktion wird der aktuelle Standort benötigt.',
+        splashGps: 'Standort verwenden',
+        splashDefault: 'Mit Standardposition starten (München)',
+        splashWaiting: 'Standort wird abgefragt…',
+        splashDenied: 'Standortzugriff verweigert. Standardposition wird verwendet.',
+        infoTitle: 'Über SkyAlarm',
+        infoP1: 'SkyAlarm meldet in Echtzeit Tiefflieger im Umkreis und visualisiert Luftraumzonen (DiPUL). Doppelklick auf die Karte verschiebt das Alarm-Zentrum.',
+        infoP2: 'Bei Annäherung eines Flugzeugs unter ca. 300 m Flughöhe innerhalb 2 km wird ein akustisches und vibrierendes Alarmsignal ausgelöst.',
+        infoLegal: 'Hinweis: SkyAlarm ist ein Hilfswerkzeug ohne Gewähr. Verantwortung für sicheren Drohnenbetrieb verbleibt vollständig beim Piloten. Daten ohne Garantie.',
+        pwaText: 'SkyAlarm als App installieren',
+        pwaInstall: 'Installieren',
+      },
+      en: {
+        locInit: 'Determining location…',
+        statWatch: '● Watching',
+        statAlarm: n => '⚠ ' + n + ' aircraft',
+        ctrlGps: 'Use current location',
+        ctrlZones: 'Toggle airspace zones',
+        ctrlStyle: 'Cycle map style',
+        ctrlTheme: 'Toggle light/dark',
+        ctrlInfo: 'About SkyAlarm',
+        langTitle: 'Switch language',
+        lowAltHdr: '⚠ Low-altitude aircraft (<300 m)',
+        splashIntro: 'Real-time low-altitude aircraft alert and airspace map. Full functionality requires your current location.',
+        splashGps: 'Use my location',
+        splashDefault: 'Start with default position (Munich)',
+        splashWaiting: 'Requesting location…',
+        splashDenied: 'Location denied. Using default position.',
+        infoTitle: 'About SkyAlarm',
+        infoP1: 'SkyAlarm reports nearby low-altitude aircraft in real time and displays airspace zones (DiPUL). Double-click the map to move the alarm center.',
+        infoP2: 'When an aircraft below ~300 m altitude approaches within 2 km, an acoustic and vibrating alarm is triggered.',
+        infoLegal: 'Disclaimer: SkyAlarm is an auxiliary tool without warranty. Responsibility for safe drone operation remains entirely with the pilot. Data without guarantee.',
+        pwaText: 'Install SkyAlarm as app',
+        pwaInstall: 'Install',
+      }
+    };
+    let LANG = localStorage.getItem('skyalarm-lang') || 'de';
+    function _t(k) { return (I18N[LANG] || I18N.de)[k] ?? I18N.de[k] ?? k; }
+    function applyLang() {
+      document.documentElement.lang = LANG;
+      document.querySelectorAll('[data-i18n]').forEach(el => {
+        const v = _t(el.getAttribute('data-i18n'));
+        if (typeof v === 'string') el.textContent = v;
+      });
+      document.querySelectorAll('[data-i18n-title]').forEach(el => {
+        const v = _t(el.getAttribute('data-i18n-title'));
+        if (typeof v === 'string') el.title = v;
+      });
+      const lb = document.getElementById('btn-lang');
+      if (lb) lb.textContent = LANG === 'en' ? '🇬🇧' : '🇩🇪';
+      // Falls bereits initialisiert, Status- und Lowalt-Header neu rendern
+      if (AV.lat != null) { avRefreshTexts(); }
+    }
+    function $(id) { return document.getElementById(id); }
+    function avRefreshTexts() {
+      const stat = $('av-stat');
+      if (stat && stat.classList.contains('watch')) stat.textContent = _t('statWatch');
+      // Tiefflieger-Header beim nächsten Poll-Tick aktualisiert sich automatisch.
+    }
+
+    /* [J-CONFIG] Konstanten und Konfiguration */
+    const DIPUL_WMS_URL = 'https://uas-betrieb.de/geoservices/dipul/wms';
+    const ADSB_URL = 'https://api.airplanes.live/v2/point';
+    const DIPUL_ALL_LAYERS = 'bahnanlagen,behoerden,binnenwasserstrassen,bundesautobahnen,bundesstrassen,diplomatische_vertretungen,ffh-gebiete,flugbeschraenkungsgebiete,flughaefen,flugplaetze,freibaeder,haengegleiter,inaktive_temporaere_betriebseinschraenkungen,industrieanlagen,internationale_organisationen,justizvollzugsanstalten,kontrollzonen,kraftwerke,krankenhaeuser,labore,militaerische_anlagen,modellflugplaetze,nationalparks,naturschutzgebiete,polizei,schifffahrtsanlagen,seewasserstrassen,sicherheitsbehoerden,stromleitungen,temporaere_betriebseinschraenkungen,umspannwerke,vogelschutzgebiete,windkraftanlagen,wohngrundstuecke';
+    function getActiveDipulLayers() { return DIPUL_ALL_LAYERS; }
+
+    /* [J-STATE] Anwendungs-State */
+    const AV = {
+      map: null, tileL: null, dipulL: null, acLayer: null, trailLayer: null, trails: {},
+      radiusCirc: null, scanCirc: null, posMarker: null,
+      interval: null, beepInterval: null,
+      lat: null, lon: null,
+      zonesOn: true, lightMode: false, alarmOn: false, styleIdx: 0,
+      RADIUS_KM: 2, POLL_MS: 2000, ALT_LIMIT_FT: 984, SCAN_KM: 18.52, TRAIL_SEC: 60,
+      STYLES: [
+        { n: 'Dark', u: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', a: '©CARTO', s: 'abcd' },
+        { n: 'OSM', u: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', a: '©OSM', s: 'abc' },
+        { n: 'Satellit', u: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', a: '©Esri', s: '' },
+        { n: 'Hell', u: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', a: '©CARTO', s: 'abcd' },
+      ]
+    };
+
+    /* [J-FETCHZONES] DiPUL WMS GetFeatureInfo — δ-Formel empirisch kalibriert */
+    async function fetchZones(lat, lon, radiusM = 100) {
+      const δ = Math.max(0.001134, radiusM * 101 / (4 * 111320));
+      const bbox = `${lat - δ},${lon - δ},${lat + δ},${lon + δ}`;
+      const activeL = getActiveDipulLayers();
+      const url = `${DIPUL_WMS_URL}?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetFeatureInfo`
+        + `&FORMAT=image/png&TRANSPARENT=true`
+        + `&QUERY_LAYERS=${activeL}&LAYERS=${activeL}`
+        + `&CRS=EPSG:4326&BBOX=${bbox}&WIDTH=101&HEIGHT=101&I=50&J=50`
+        + `&INFO_FORMAT=text/html&FEATURE_COUNT=50`;
+      try {
+        const r = await fetch(url);
+        if (!r.ok) return [];
+        const html = await r.text();
+        const doc = new DOMParser().parseFromString(html, 'text/html');
+        const tables = doc.querySelectorAll('table.featureInfo');
+        const params = [];
+        tables.forEach(table => {
+          const headers = Array.from(table.querySelectorAll('th')).map(th => th.textContent.trim().toLowerCase());
+          const rows = table.querySelectorAll('tr');
+          for (let i = 1; i < rows.length; i++) {
+            const cells = rows[i].querySelectorAll('td');
+            if (cells.length !== headers.length) continue;
+            const f = {};
+            headers.forEach((h, idx) => f[h] = cells[idx].textContent.trim());
+            const rawName = f.name || f.bezeichnung || '';
+            const type = f.type_code || f.geozone_art || 'Spezifische Geozone';
+            const name = rawName || type;
+            params.push({ name, type });
+          }
+        });
+        return params;
+      } catch (e) { return []; }
+    }
+
+    /* [J-ICON] Aircraft-SVG — fixed-wing oder Helikopter */
+    function _acSvg(hdg, col, isHelo, sz) {
+      sz = sz || 26;
+      if (isHelo) {
+        return '<svg xmlns="http://www.w3.org/2000/svg" width="' + sz + '" height="' + sz + '" viewBox="-12 -12 24 24" style="transform:rotate(' + hdg + 'deg);display:block">'
+          + '<circle cx="0" cy="0" r="9.5" fill="none" stroke="' + col + '" stroke-width="0.7" stroke-dasharray="3,2.5" opacity="0.4"/>'
+          + '<line x1="-6.7" y1="-6.7" x2="6.7" y2="6.7" stroke="' + col + '" stroke-width="1.2" stroke-linecap="round"/>'
+          + '<line x1="-6.7" y1="6.7" x2="6.7" y2="-6.7" stroke="' + col + '" stroke-width="1.2" stroke-linecap="round"/>'
+          + '<ellipse cx="0" cy="0.5" rx="2.8" ry="5.5" fill="' + col + '" stroke="rgba(0,0,0,0.45)" stroke-width="0.5"/>'
+          + '</svg>';
+      }
+      return '<svg xmlns="http://www.w3.org/2000/svg" width="' + sz + '" height="' + sz + '" viewBox="-12 -12 24 24" style="transform:rotate(' + hdg + 'deg);display:block">'
+        + '<polygon points="0,-10 2,-6 2,-1 9,3 9,4.5 2,2 1.5,7 4.5,9 4.5,10.5 0,8.5 -4.5,10.5 -4.5,9 -1.5,7 -2,2 -9,4.5 -9,3 -2,-1 -2,-6" fill="' + col + '" stroke="rgba(0,0,0,0.45)" stroke-width="0.5" stroke-linejoin="round"/>'
+        + '</svg>';
+    }
+
+    /* [J-DIST] Haversine-Distanz in km */
+    function avDist(la1, lo1, la2, lo2) {
+      const R = 6371, dL = (la2 - la1) * Math.PI / 180, dO = (lo2 - lo1) * Math.PI / 180;
+      const a = Math.sin(dL / 2) ** 2 + Math.cos(la1 * Math.PI / 180) * Math.cos(la2 * Math.PI / 180) * Math.sin(dO / 2) ** 2;
+      return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    }
+
+    /* [J-MAP-INIT] Karte aufbauen */
+    function avInitMap() {
+      const s0 = AV.STYLES[AV.styleIdx];
+      AV.map = L.map('alarm-map', { center: [AV.lat, AV.lon], zoom: 13, zoomControl: true, doubleClickZoom: false });
+      AV.tileL = L.tileLayer(s0.u, { attribution: s0.a, subdomains: s0.s || 'abc', maxZoom: 19 }).addTo(AV.map);
+      AV.dipulL = L.tileLayer.wms(DIPUL_WMS_URL, {
+        layers: getActiveDipulLayers(), format: 'image/png', transparent: true, opacity: 0.55, version: '1.3.0'
+      }).addTo(AV.map);
+      AV.acLayer = L.layerGroup().addTo(AV.map);
+      AV.trailLayer = L.layerGroup().addTo(AV.map);
+      AV.trails = {};
+      AV.radiusCirc = L.circle([AV.lat, AV.lon], {
+        radius: AV.RADIUS_KM * 1000, color: '#ff4444', fill: false, weight: 1.5, dashArray: '6 4'
+      }).addTo(AV.map);
+      AV.scanCirc = L.circle([AV.lat, AV.lon], {
+        radius: AV.SCAN_KM * 1000, color: '#f5c542', fill: false, weight: 1.2, dashArray: '8 6', opacity: 0.5
+      }).addTo(AV.map);
+      AV.posMarker = L.circleMarker([AV.lat, AV.lon], {
+        radius: 5, color: '#00b4d8', fillColor: '#00b4d8', fillOpacity: 0.9, weight: 2
+      }).addTo(AV.map);
+      AV.map.on('dblclick', e => {
+        AV.lat = e.latlng.lat; AV.lon = e.latlng.lng;
+        $('av-loc').textContent = AV.lat.toFixed(5) + ', ' + AV.lon.toFixed(5);
+        AV.radiusCirc.setLatLng([AV.lat, AV.lon]);
+        AV.scanCirc.setLatLng([AV.lat, AV.lon]);
+        if (AV.posMarker) AV.posMarker.setLatLng([AV.lat, AV.lon]);
+      });
+    }
+
+    function avStartPoll() { avPoll(); AV.interval = setInterval(avPoll, AV.POLL_MS); }
+
+    async function avPoll() {
+      try {
+        const r = await fetch(ADSB_URL + '/' + AV.lat + '/' + AV.lon + '/10');
+        const d = await r.json();
+        avUpdateMarkers(d.ac || []);
+        avCheckProx(d.ac || []);
+      } catch (e) { }
+    }
+
+    function avUpdateMarkers(planes) {
+      AV.acLayer.clearLayers();
+      AV.trailLayer.clearLayers();
+      const now = Date.now();
+      const cutoff = now - AV.TRAIL_SEC * 1000;
+      const altFt = a => (a.alt_baro == null || a.alt_baro === 'ground') ? 0 : +a.alt_baro;
+      const seen = {};
+      planes.forEach(a => {
+        if (!a.lat || !a.lon) return;
+        const hex = a.hex || '';
+        seen[hex] = true;
+        const dist = avDist(AV.lat, AV.lon, a.lat, a.lon);
+        const alt = altFt(a);
+        const isLow = alt < AV.ALT_LIMIT_FT;
+        const clr = (isLow && dist < AV.RADIUS_KM) ? '#ff4444' : isLow ? '#ffaa00' : dist < 5 ? '#88bb88' : '#557755';
+        const sz = isLow ? 28 : 22;
+        const rot = a.track || 0;
+        const cat = (a.category || '').toUpperCase();
+        const isHelo = /^A7|^B/.test(cat);
+        const icon = L.divIcon({
+          html: _acSvg(rot, clr, isHelo, sz),
+          className: '', iconSize: [sz, sz], iconAnchor: [sz/2, sz/2]
+        });
+        const m = L.marker([a.lat, a.lon], { icon }).addTo(AV.acLayer);
+        const cs = a.flight ? a.flight.trim() : (a.hex || '?');
+        const altM = Math.round(alt * 0.3048);
+        const info = '<b>' + cs + '</b><br>' + dist.toFixed(1) + ' km · ' + altM + ' m (' + (a.alt_baro || '?') + ' ft) · ' + (a.gs || '?') + ' kts';
+        m.bindPopup(info);
+        if (isLow) m.bindTooltip(cs + ' ' + altM + 'm', { permanent: true, direction: 'right', className: 'av-tt-low', offset: [12, 0] });
+        if (!AV.trails[hex]) AV.trails[hex] = [];
+        AV.trails[hex].push({ lat: a.lat, lon: a.lon, ts: now });
+        AV.trails[hex] = AV.trails[hex].filter(p => p.ts > cutoff);
+        const pts = AV.trails[hex];
+        if (pts.length >= 2) {
+          for (let i = 1; i < pts.length; i++) {
+            const age = (now - pts[i].ts) / (AV.TRAIL_SEC * 1000);
+            const op = Math.max(0.1, 1 - age);
+            L.polyline([[pts[i-1].lat, pts[i-1].lon], [pts[i].lat, pts[i].lon]], {
+              color: clr, weight: isLow ? 2.5 : 1.5, opacity: op, lineCap: 'round'
+            }).addTo(AV.trailLayer);
+          }
+        }
+      });
+      for (const hex of Object.keys(AV.trails)) {
+        if (!seen[hex]) {
+          AV.trails[hex] = AV.trails[hex].filter(p => p.ts > cutoff);
+          const pts = AV.trails[hex];
+          if (pts.length >= 2) {
+            for (let i = 1; i < pts.length; i++) {
+              const age = (now - pts[i].ts) / (AV.TRAIL_SEC * 1000);
+              const op = Math.max(0.1, 1 - age);
+              L.polyline([[pts[i-1].lat, pts[i-1].lon], [pts[i].lat, pts[i].lon]], {
+                color: '#557755', weight: 1.5, opacity: op, lineCap: 'round'
+              }).addTo(AV.trailLayer);
+            }
+          }
+          if (!pts.length) delete AV.trails[hex];
+        }
+      }
+    }
+
+    function avCheckProx(planes) {
+      const altFt = a => (a.alt_baro == null || a.alt_baro === 'ground') ? 0 : +a.alt_baro;
+      const low = planes.filter(a => a.lat && a.lon && altFt(a) < AV.ALT_LIMIT_FT);
+      avUpdateLowAlt(low);
+      const near = low.filter(a => avDist(AV.lat, AV.lon, a.lat, a.lon) < AV.RADIUS_KM);
+      if (near.length) {
+        const a = near[0];
+        const cs = a.flight ? a.flight.trim() : (a.hex || '?');
+        const d = avDist(AV.lat, AV.lon, a.lat, a.lon);
+        $('av-stat').className = 'av-stat alarm';
+        $('av-stat').textContent = _t('statAlarm')(near.length);
+        $('av-banner').className = 'av-banner show';
+        const altM = Math.round(altFt(a) * 0.3048);
+        $('av-banner').textContent = '⚠ ' + cs + ' — ' + d.toFixed(2) + ' km · ' + altM + ' m';
+        if (!AV.alarmOn) {
+          AV.alarmOn = true;
+          avBeep();
+          if (navigator.vibrate) navigator.vibrate([200, 100, 200, 100, 400]);
+          AV.beepInterval = setInterval(() => {
+            avBeep();
+            if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+          }, 5000);
+        }
+      } else {
+        if (AV.alarmOn && AV.beepInterval) { clearInterval(AV.beepInterval); AV.beepInterval = null; }
+        AV.alarmOn = false;
+        $('av-stat').className = 'av-stat watch';
+        $('av-stat').textContent = _t('statWatch');
+        $('av-banner').className = 'av-banner';
+      }
+    }
+
+    function avUpdateLowAlt(lowPlanes) {
+      const el = $('av-lowalt');
+      if (!lowPlanes.length) { el.className = 'av-lowalt'; el.innerHTML = ''; return; }
+      el.className = 'av-lowalt show';
+      const rows = lowPlanes.map(a => {
+        const cs = a.flight ? a.flight.trim() : (a.hex || '?');
+        const alt = (a.alt_baro == null || a.alt_baro === 'ground') ? 0 : +a.alt_baro;
+        const altM = Math.round(alt * 0.3048);
+        const dist = avDist(AV.lat, AV.lon, a.lat, a.lon);
+        const spd = a.gs ? Math.round(a.gs * 1.852) : '?';
+        return '<div class="av-lowalt-row"><span>✈ ' + cs + '</span><span>' + altM + ' m</span><span>' + dist.toFixed(1) + ' km</span><span>' + spd + ' km/h</span></div>';
+      }).join('');
+      el.innerHTML = '<div class="av-lowalt-hdr">' + _t('lowAltHdr') + '</div>' + rows;
+    }
+
+    /* [J-AUDIO] Web-Audio-Beep */
+    let _avAudioCtx = null;
+    function _avCtx() {
+      if (!_avAudioCtx) _avAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      if (_avAudioCtx.state === 'suspended') _avAudioCtx.resume();
+      return _avAudioCtx;
+    }
+    function avBeep() {
+      try {
+        const ctx = _avCtx();
+        [[880, 0], [1100, 0.35], [880, 0.7]].forEach(([freq, t]) => {
+          const o = ctx.createOscillator(), g = ctx.createGain();
+          o.connect(g); g.connect(ctx.destination);
+          o.frequency.value = freq;
+          g.gain.setValueAtTime(0.25, ctx.currentTime + t);
+          g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + t + 0.28);
+          o.start(ctx.currentTime + t);
+          o.stop(ctx.currentTime + t + 0.3);
+        });
+      } catch (e) { }
+    }
+
+    /* [J-START] Initial-Flow: GPS oder Standardposition */
+    const DEFAULT_LAT = 48.137, DEFAULT_LON = 11.575; // München-Zentrum
+
+    function startApp(lat, lon) {
+      AV.lat = lat; AV.lon = lon;
+      $('av-loc').textContent = lat.toFixed(5) + ', ' + lon.toFixed(5);
+      $('splash').classList.add('hidden');
+      if (!AV.map) avInitMap();
+      else { AV.map.setView([AV.lat, AV.lon], 13); setTimeout(() => AV.map.invalidateSize(), 80); }
+      avStartPoll();
+    }
+
+    function requestGps() {
+      $('splash-status').textContent = _t('splashWaiting');
+      if (!navigator.geolocation) {
+        $('splash-status').textContent = _t('splashDenied');
+        startApp(DEFAULT_LAT, DEFAULT_LON);
+        return;
+      }
+      navigator.geolocation.getCurrentPosition(
+        pos => startApp(pos.coords.latitude, pos.coords.longitude),
+        () => {
+          $('splash-status').textContent = _t('splashDenied');
+          setTimeout(() => startApp(DEFAULT_LAT, DEFAULT_LON), 600);
+        },
+        { enableHighAccuracy: true, timeout: 10000 }
+      );
+    }
+
+    /* [J-EVENTS] Event-Listener */
+    document.addEventListener('DOMContentLoaded', () => {
+      applyLang();
+
+      $('btn-lang').addEventListener('click', () => {
+        LANG = LANG === 'de' ? 'en' : 'de';
+        localStorage.setItem('skyalarm-lang', LANG);
+        applyLang();
+      });
+
+      $('splash-gps').addEventListener('click', requestGps);
+      $('splash-default').addEventListener('click', () => startApp(DEFAULT_LAT, DEFAULT_LON));
+
+      $('av-gps').addEventListener('click', () => {
+        if (!navigator.geolocation) return;
+        navigator.geolocation.getCurrentPosition(pos => {
+          AV.lat = pos.coords.latitude; AV.lon = pos.coords.longitude;
+          $('av-loc').textContent = AV.lat.toFixed(5) + ', ' + AV.lon.toFixed(5);
+          if (AV.map) {
+            AV.map.setView([AV.lat, AV.lon], 14);
+            AV.radiusCirc.setLatLng([AV.lat, AV.lon]);
+            AV.scanCirc.setLatLng([AV.lat, AV.lon]);
+          }
+          if (AV.posMarker) AV.posMarker.setLatLng([AV.lat, AV.lon]);
+        });
+      });
+
+      $('av-zones').addEventListener('click', () => {
+        if (!AV.map || !AV.dipulL) return;
+        AV.zonesOn = !AV.zonesOn;
+        AV.zonesOn ? AV.map.addLayer(AV.dipulL) : AV.map.removeLayer(AV.dipulL);
+        $('av-zones').classList.toggle('on', AV.zonesOn);
+      });
+
+      $('av-style').addEventListener('click', () => {
+        if (!AV.map || !AV.tileL) return;
+        AV.styleIdx = (AV.styleIdx + 1) % AV.STYLES.length;
+        const s = AV.STYLES[AV.styleIdx];
+        AV.map.removeLayer(AV.tileL);
+        AV.tileL = L.tileLayer(s.u, { attribution: s.a, subdomains: s.s || 'abc', maxZoom: 19 }).addTo(AV.map);
+        AV.tileL.bringToBack();
+        $('av-style').title = s.n;
+      });
+
+      $('av-theme').addEventListener('click', () => {
+        AV.lightMode = !AV.lightMode;
+        $('app-view').classList.toggle('av-light', AV.lightMode);
+        $('av-theme').textContent = AV.lightMode ? '🌙' : '☀';
+      });
+
+      $('av-info').addEventListener('click', () => $('info-modal').classList.remove('hidden'));
+      $('info-close').addEventListener('click', () => $('info-modal').classList.add('hidden'));
+      $('info-modal').addEventListener('click', e => {
+        if (e.target.id === 'info-modal') $('info-modal').classList.add('hidden');
+      });
+    });
+
+    /* [J-PWA] Install-Banner und Service Worker */
+    let deferredPrompt = null;
+    window.addEventListener('beforeinstallprompt', e => {
+      e.preventDefault();
+      deferredPrompt = e;
+      const dismissed = localStorage.getItem('skyalarm-pwa-dismissed');
+      if (dismissed && Date.now() - parseInt(dismissed) < 30 * 86400000) return;
+      $('pwa-banner').classList.add('show');
+    });
+    document.addEventListener('DOMContentLoaded', () => {
+      $('pwa-install')?.addEventListener('click', () => {
+        if (!deferredPrompt) return;
+        deferredPrompt.prompt();
+        deferredPrompt.userChoice.then(() => {
+          deferredPrompt = null;
+          $('pwa-banner').classList.remove('show');
+        });
+      });
+      $('pwa-dismiss')?.addEventListener('click', () => {
+        $('pwa-banner').classList.remove('show');
+        localStorage.setItem('skyalarm-pwa-dismissed', Date.now().toString());
+      });
+    });
+    window.addEventListener('appinstalled', () => {
+      $('pwa-banner')?.classList.remove('show');
+      deferredPrompt = null;
+    });
+
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js').catch(() => {});
+    }
+  </script>
+</body>
+</html>
