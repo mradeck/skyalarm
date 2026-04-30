@@ -205,14 +205,94 @@
     /* Aircraft popup */
     .ac-popup b { color: var(--accent); }
 
-    /* === ZONES OVERLAY (oben links) === */
-    .zones-overlay {
+    /* === TOP-LEFT-STACK: Kompakt-Overlay + Detail-Overlay === */
+    .tl-stack {
       position: absolute;
       top: 44px;
       left: 8px;
       z-index: 1003;
-      width: min(300px, calc(100% - 60px));
-      max-height: 60vh;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      max-width: min(300px, calc(100% - 60px));
+      max-height: calc(100vh - 80px);
+    }
+
+    /* === STATUS-OVERLAY (kompakt) === */
+    .status-overlay {
+      width: 100%;
+      background: rgba(10, 20, 40, 0.84);
+      border: 1px solid rgba(100, 160, 255, 0.25);
+      border-radius: 8px;
+      padding: 0.45rem 0.65rem;
+      backdrop-filter: blur(5px);
+      font-size: 0.71rem;
+      line-height: 1.5;
+      pointer-events: none;
+    }
+    .status-summary { display: flex; flex-direction: column; gap: 0; }
+    .ms-zones { display: flex; flex-direction: column; gap: 0.05rem; }
+    .ms-zone-item {
+      display: flex;
+      align-items: center;
+      gap: 0.3rem;
+      color: var(--text2);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .ms-zone-item.go { color: #4f4; }
+    .ms-zone-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .ms-wind {
+      margin-top: 0.35rem;
+      padding-top: 0.35rem;
+      border-top: 1px solid rgba(255,255,255,0.1);
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      color: var(--text2);
+    }
+    .ms-wind:empty { display: none; }
+    .ms-arrow {
+      display: inline-block;
+      font-size: 1rem;
+      line-height: 1;
+    }
+    .ms-c-warn { color: #ffaa00; font-weight: 700; }
+    .ms-c-nogo { color: #ff5555; font-weight: 700; }
+    .ms-ice {
+      margin-top: 0.35rem;
+      padding-top: 0.35rem;
+      border-top: 1px solid rgba(255,255,255,0.1);
+      color: #ff8888;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 0.3rem;
+    }
+    .ms-ice.hidden { display: none; }
+
+    /* Light-Mode Status */
+    #app-view.av-light .status-overlay {
+      background: rgba(245,245,245,0.92);
+      border-color: rgba(0,0,0,0.18);
+    }
+    #app-view.av-light .ms-zone-item,
+    #app-view.av-light .ms-wind { color: #444; }
+    #app-view.av-light .ms-zone-item.go { color: #198a3a; }
+    #app-view.av-light .ms-wind { border-top-color: rgba(0,0,0,0.12); }
+    #app-view.av-light .ms-ice { border-top-color: rgba(0,0,0,0.12); color: #b00; }
+
+    /* === ZONES OVERLAY (Detailliste, ausklappbar, unter dem Kompakt-Overlay) === */
+    .zones-overlay {
+      width: 100%;
+      flex: 0 1 auto;
+      min-height: 0;
       background: rgba(15, 15, 15, 0.88);
       backdrop-filter: blur(4px);
       border: 1px solid rgba(255, 255, 255, 0.18);
@@ -480,15 +560,24 @@
       <span class="av-stat watch" id="av-stat" data-i18n="statWatch">● Beobachte</span>
     </div>
     <div class="av-banner" id="av-banner"></div>
-    <div class="zones-overlay" id="zones-overlay">
-      <div class="zones-overlay-hdr" id="zones-overlay-hdr">
-        <div class="zones-overlay-hdr-left">
-          <span id="zones-overlay-text" data-i18n="zonesLoading">Geozonen werden geladen…</span>
-          <span class="zones-overlay-cnt ok" id="zones-overlay-cnt">0</span>
+    <div class="tl-stack">
+      <div class="status-overlay" id="status-overlay">
+        <div class="status-summary" id="status-summary">
+          <div class="ms-zones" id="ms-zones"></div>
+          <div class="ms-wind" id="ms-wind"></div>
+          <div class="ms-ice hidden" id="ms-ice"></div>
         </div>
-        <span class="zones-overlay-chev" id="zones-overlay-chev">▼</span>
       </div>
-      <div class="zones-overlay-body" id="zones-overlay-body"></div>
+      <div class="zones-overlay" id="zones-overlay">
+        <div class="zones-overlay-hdr" id="zones-overlay-hdr">
+          <div class="zones-overlay-hdr-left">
+            <span id="zones-overlay-text" data-i18n="zonesLoading">Geozonen werden geladen…</span>
+            <span class="zones-overlay-cnt ok" id="zones-overlay-cnt">0</span>
+          </div>
+          <span class="zones-overlay-chev" id="zones-overlay-chev">▼</span>
+        </div>
+        <div class="zones-overlay-body" id="zones-overlay-body"></div>
+      </div>
     </div>
     <div class="av-lowalt" id="av-lowalt"></div>
     <div id="alarm-map"></div>
@@ -538,7 +627,7 @@
 
   <script>
     /* [J-VER] Versionsnummer — einzige Stelle */
-    const APP_VER = '0.11';
+    const APP_VER = '0.12';
     document.querySelectorAll('.l-ver').forEach(e => e.textContent = APP_VER);
 
     /* [J-I18N] Internationalisierung — DE/EN, alarm-spezifisch */
@@ -573,6 +662,13 @@
         lblLower: 'Untere Grenze',
         lblUpper: 'Obere Grenze',
         lblLegal: 'Rechtshinweis',
+        msNoRestr: '✓ Keine Einschränkungen', msGusts: 'Böen',
+        msAirport: 'Flughafen', msAerodrome: 'Flugplatz', msCTR: 'Kontrollzone',
+        msProhibited: 'Flugverbot', msTempRestr: 'Temp. Einschränkung',
+        msHighway: 'Autobahn', msFedRoad: 'Bundesstraße', msWaterway: 'Wasserstraße',
+        msNature: 'Naturschutz', msResidential: 'Siedlung', msMilitary: 'Militär',
+        msIndustry: 'Industrie/Energie', msHospital: 'Krankenhaus',
+        iceAlertShort: (mm, t) => `Eisalarm: ${mm} mm bei ${t} °C`,
       },
       en: {
         locInit: 'Determining location…',
@@ -604,6 +700,13 @@
         lblLower: 'Lower limit',
         lblUpper: 'Upper limit',
         lblLegal: 'Legal reference',
+        msNoRestr: '✓ No restrictions', msGusts: 'Gusts',
+        msAirport: 'Airport', msAerodrome: 'Airfield', msCTR: 'Control Zone',
+        msProhibited: 'No-fly Zone', msTempRestr: 'Temp. Restriction',
+        msHighway: 'Motorway', msFedRoad: 'Federal Road', msWaterway: 'Waterway',
+        msNature: 'Nature Reserve', msResidential: 'Residential', msMilitary: 'Military',
+        msIndustry: 'Industry/Energy', msHospital: 'Hospital',
+        iceAlertShort: (mm, t) => `Ice alert: ${mm} mm at ${t} °C`,
       }
     };
     let LANG = localStorage.getItem('skyalarm-lang') || 'de';
@@ -630,11 +733,14 @@
       // Tiefflieger-Header beim nächsten Poll-Tick aktualisiert sich automatisch.
       // Zonen-Liste neu rendern (Header und Labels sprachabhängig)
       if (typeof updateZonesOverlay === 'function') updateZonesOverlay();
+      // Status-Overlay (Kompakt) ebenfalls neu rendern
+      if (typeof renderStatusOverlay === 'function') renderStatusOverlay(AV.lastWeather, AV.lastZones || []);
     }
 
     /* [J-CONFIG] Konstanten und Konfiguration */
     const DIPUL_WMS_URL = 'https://uas-betrieb.de/geoservices/dipul/wms';
     const ADSB_URL = 'https://api.airplanes.live/v2/point';
+    const BRIGHTSKY_URL = 'https://api.brightsky.dev/weather';
     const DIPUL_ALL_LAYERS = 'bahnanlagen,behoerden,binnenwasserstrassen,bundesautobahnen,bundesstrassen,diplomatische_vertretungen,ffh-gebiete,flugbeschraenkungsgebiete,flughaefen,flugplaetze,freibaeder,haengegleiter,inaktive_temporaere_betriebseinschraenkungen,industrieanlagen,internationale_organisationen,justizvollzugsanstalten,kontrollzonen,kraftwerke,krankenhaeuser,labore,militaerische_anlagen,modellflugplaetze,nationalparks,naturschutzgebiete,polizei,schifffahrtsanlagen,seewasserstrassen,sicherheitsbehoerden,stromleitungen,temporaere_betriebseinschraenkungen,umspannwerke,vogelschutzgebiete,windkraftanlagen,wohngrundstuecke';
     function getActiveDipulLayers() { return DIPUL_ALL_LAYERS; }
 
@@ -642,10 +748,12 @@
     const AV = {
       map: null, tileL: null, dipulL: null, acLayer: null, trailLayer: null, trails: {},
       radiusCirc: null, scanCirc: null, posMarker: null,
-      interval: null, beepInterval: null,
+      interval: null, beepInterval: null, weatherInterval: null,
       lat: null, lon: null,
+      lastZones: [], lastWeather: null,
       zonesOn: true, lightMode: false, alarmOn: false, styleIdx: 0,
       RADIUS_KM: 2, POLL_MS: 2000, ALT_LIMIT_FT: 984, SCAN_KM: 18.52, TRAIL_SEC: 60,
+      WEATHER_POLL_MS: 600000, /* alle 10 min Wetter aktualisieren */
       STYLES: [
         { n: 'Dark', u: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', a: '©CARTO', s: 'abcd' },
         { n: 'OSM', u: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', a: '©OSM', s: 'abc' },
@@ -759,8 +867,141 @@
       if (AV.lat == null) return;
       try {
         const z = await fetchZones(AV.lat, AV.lon, 100);
+        AV.lastZones = z;
         renderZones(z);
-      } catch { renderZones([]); }
+        renderStatusOverlay(AV.lastWeather, z);
+      } catch {
+        AV.lastZones = [];
+        renderZones([]);
+        renderStatusOverlay(AV.lastWeather, []);
+      }
+    }
+
+    /* [J-FETCHWEATHER] BrightSky — aktueller Wind, Böen, Niederschlag, Temperatur */
+    async function fetchWeather(lat, lon) {
+      const now = new Date();
+      const end = new Date(now.getTime() + 6 * 3600 * 1000);
+      const dFmt = d => d.toISOString().slice(0, 10);
+      const url = `${BRIGHTSKY_URL}?lat=${lat}&lon=${lon}&date=${dFmt(now)}&last_date=${dFmt(end)}&units=si`;
+      try {
+        const r = await fetch(url);
+        if (!r.ok) return null;
+        const d = await r.json();
+        const arr = (d.weather || []).map(w => ({
+          ...w,
+          temperature: w.temperature != null ? +(w.temperature - 273.15).toFixed(2) : null,
+        }));
+        // Aktuellen Datensatz zur jetzigen Stunde wählen
+        const ts = now.getTime();
+        let best = arr[0] || null, bd = Infinity;
+        arr.forEach(w => {
+          const d = Math.abs(new Date(w.timestamp).getTime() - ts);
+          if (d < bd) { bd = d; best = w; }
+        });
+        return best;
+      } catch { return null; }
+    }
+
+    async function updateWeatherOverlay() {
+      if (AV.lat == null) return;
+      const w = await fetchWeather(AV.lat, AV.lon);
+      AV.lastWeather = w;
+      renderStatusOverlay(w, AV.lastZones || []);
+    }
+
+    /* [J-RENDER-STATUS] Kompakt-Overlay: Zonen-Kurzlabels, Wind/Böen, Eisalarm */
+    function renderStatusOverlay(weather, zones) {
+      // --- Zonen-Vereinfachung (wie SkyCheck renderMapStatus) ---
+      const simplify = (type, name) => {
+        const t = (type || '').toLowerCase();
+        const n = (name || '');
+        if (t.includes('flughafen') || t.includes('airport') || t === 'ctr' || t === 'atz')
+          return { label: _t('msAirport'), color: '#e05252' };
+        if (t.includes('flugplatz') || t.includes('flugplaetze'))
+          return { label: _t('msAerodrome'), color: '#e07832' };
+        if (t.includes('kontrollzone') || t === 'ctr')
+          return { label: _t('msCTR'), color: '#e05252' };
+        if (t.includes('flugbeschraenkung') || t.includes('beschraenkung') || t.includes('tfr') || t.includes('prohibited'))
+          return { label: _t('msProhibited'), color: '#cc2244' };
+        if (t.includes('temporaere') || t.includes('teb'))
+          return { label: _t('msTempRestr'), color: '#dd6600' };
+        if (t.includes('bundesautobahn') || t.includes('autobahn')) {
+          const m = n.match(/(?:BAB\s*|A\s*)(\d+)/i) || n.match(/(\d+)/);
+          return { label: _t('msHighway') + (m ? ' A' + m[1] : ''), color: '#4488cc' };
+        }
+        if (t.includes('bundesstrasse') || t.includes('bundesstraße')) {
+          const m = n.match(/(?:B\s*|B)(\d+)/i) || n.match(/(\d+)/);
+          return { label: _t('msFedRoad') + (m ? ' B' + m[1] : ''), color: '#5599aa' };
+        }
+        if (t.includes('binnenwasser') || t.includes('seewasser') || t.includes('schifffahrt')) {
+          const known = ['Rhein', 'Elbe', 'Donau', 'Main', 'Mosel', 'Oder', 'Spree', 'Isar', 'Weser', 'Neckar', 'Saar', 'Havel'];
+          const found = known.find(r => n.toLowerCase().includes(r.toLowerCase()));
+          return { label: _t('msWaterway') + (found ? ' ' + found : ''), color: '#3399bb' };
+        }
+        if (t.includes('nationalpark') || t.includes('naturschutz') || t.includes('ffh') || t.includes('vogelschutz'))
+          return { label: _t('msNature'), color: '#44aa66' };
+        if (t.includes('wohngrundstuck') || t.includes('wohngrundstueck') || t.includes('wohn'))
+          return { label: _t('msResidential'), color: '#8866cc' };
+        if (t.includes('militar') || t.includes('militär'))
+          return { label: _t('msMilitary'), color: '#aa4455' };
+        if (t.includes('industrie') || t.includes('kraftwerk') || t.includes('umspann'))
+          return { label: _t('msIndustry'), color: '#887733' };
+        if (t.includes('krankenhaus') || t.includes('hospital'))
+          return { label: _t('msHospital'), color: '#ff6688' };
+        return { label: name.length > 28 ? name.slice(0, 26) + '…' : name, color: '#6688aa' };
+      };
+
+      // Zonenliste eindeutig
+      const seen = new Set();
+      const items = [];
+      (zones || []).forEach(z => {
+        const { label, color } = simplify(z.type, z.name);
+        if (!seen.has(label)) { seen.add(label); items.push({ label, color }); }
+      });
+
+      const $z = $('ms-zones');
+      if ($z) {
+        if (!items.length) {
+          $z.innerHTML = `<div class="ms-zone-item go">${_t('msNoRestr')}</div>`;
+        } else {
+          $z.innerHTML = items.map(it =>
+            `<div class="ms-zone-item"><span class="ms-zone-dot" style="background:${it.color}"></span><span>${it.label}</span></div>`
+          ).join('');
+        }
+      }
+
+      // Wind / Böen
+      const $w = $('ms-wind');
+      if ($w) {
+        if (weather) {
+          const spd = (weather.wind_speed ?? 0);
+          const gust = (weather.wind_gust_speed ?? 0);
+          const dir = (weather.wind_direction ?? 0);
+          const rot = (dir + 180) % 360;
+          const wc = spd > 10 ? 'ms-c-nogo' : spd > 7 ? 'ms-c-warn' : '';
+          const gc = gust > 10 ? 'ms-c-nogo' : gust > 7 ? 'ms-c-warn' : '';
+          $w.innerHTML = `<span class="ms-arrow" style="transform:rotate(${rot}deg);display:inline-block">↑</span>`
+            + `<span class="${wc}">${spd.toFixed(1)} m/s</span>`
+            + `<span>&nbsp;${_t('msGusts')}&nbsp;</span>`
+            + `<span class="${gc}">${gust.toFixed(0)} m/s</span>`;
+        } else {
+          $w.innerHTML = '';
+        }
+      }
+
+      // Eisalarm: Niederschlag > 0 bei Temperatur ≤ 0
+      const $i = $('ms-ice');
+      if ($i) {
+        const rain = weather?.precipitation ?? 0;
+        const temp = weather?.temperature ?? 99;
+        if (rain > 0 && temp <= 0) {
+          $i.classList.remove('hidden');
+          $i.innerHTML = `🧊 ${_t('iceAlertShort')(rain.toFixed(2), temp.toFixed(1))}`;
+        } else {
+          $i.classList.add('hidden');
+          $i.innerHTML = '';
+        }
+      }
     }
 
     /* [J-ICON] Aircraft-SVG — fixed-wing oder Helikopter */
@@ -813,6 +1054,7 @@
         AV.scanCirc.setLatLng([AV.lat, AV.lon]);
         if (AV.posMarker) AV.posMarker.setLatLng([AV.lat, AV.lon]);
         updateZonesOverlay();
+        updateWeatherOverlay();
       });
     }
 
@@ -968,6 +1210,8 @@
       else { AV.map.setView([AV.lat, AV.lon], 13); setTimeout(() => AV.map.invalidateSize(), 80); }
       avStartPoll();
       updateZonesOverlay();
+      updateWeatherOverlay();
+      if (!AV.weatherInterval) AV.weatherInterval = setInterval(updateWeatherOverlay, AV.WEATHER_POLL_MS);
     }
 
     function requestGps() {
@@ -1012,6 +1256,7 @@
           }
           if (AV.posMarker) AV.posMarker.setLatLng([AV.lat, AV.lon]);
           updateZonesOverlay();
+          updateWeatherOverlay();
         });
       });
 
