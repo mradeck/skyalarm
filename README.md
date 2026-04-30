@@ -5,13 +5,27 @@ Echtzeit-Tiefflieger-Alarm und Geozonen-Karte für Drohnenpiloten — Single-Fil
 **Live:** https://skyalarm.netlify.app/
 **Repo:** https://github.com/mradeck/skyalarm
 
-Abgespalten aus dem Schwesterprojekt [SkyCheck](https://enchanting-stardust-f713da.netlify.app/skycheck.html). SkyAlarm fokussiert sich ausschließlich auf den Luftraum-Alarm; Wetter, METAR, KP-Index und Vorhersagen bleiben SkyCheck vorbehalten.
+Abgespalten aus dem Schwesterprojekt [SkyCheck](https://enchanting-stardust-f713da.netlify.app/skycheck.html). SkyAlarm fokussiert sich auf operativ entscheidungsrelevante Echtzeit-Alarme im Drohnenflug. METAR/TAF, KP-Index, mehrtägige Vorhersagen und Adress-/Ortssuche bleiben SkyCheck vorbehalten; flugkritische Wetterindikatoren (Wind, Böen, Vereisung, Nebel, Niederschlag) sind hingegen direkt integriert.
 
 ## Funktionen
+
+### Luftraum
 
 - **Tiefflieger-Erkennung** in Echtzeit (ADS-B via [airplanes.live](https://airplanes.live/), Schwelle 300 m AGL, 2 km Radius)
 - **Akustischer und vibrierender Alarm** bei Annäherung
 - **Geozonen-Karte** mit allen DiPUL-Ebenen (Kontrollzonen, Naturschutz, Industrie, Militär u. a.)
+- **Ausklappbare Zonen-Detailliste** (Typ, untere/obere Grenze, Rechtshinweis) oben rechts
+
+### Kompakt-Status-Overlay (oben rechts)
+
+- **Zonen-Kurzlabels** mit farbiger Klassifizierung (Flughafen, CTR, Naturschutz, Wasserstraße, Autobahn …)
+- **Wind- und Böen-Anzeige** mit Richtungspfeil und Schwellwert-Farben (≥ 7 m/s Warnung, ≥ 10 m/s NoGo)
+- **Vereisungs- und Nebelprognose 50 m AGL** auf Basis von Magnus-Tetens-Taupunkt und Standard-Lapse-Rate
+- **Eisalarm** bei Niederschlag und Temperatur ≤ 0 °C
+- **Nebelalarm** bei Sicht < 1 km (WMO/DWD), dichtem Dunst < 4 km mit Spread < 1 °C oder klassischen Strahlungsnebel-Bedingungen (Spread < 0,5 °C, Wind < 2 m/s, T < 15 °C)
+
+### Karte und Bedienung
+
 - **Karten-Stile**: Dark / OSM / Satellit / Hell
 - **Hell-/Dunkel-Modus** für Tag- und Nachteinsatz
 - **Doppelklick-Korrektur** des Alarmzentrums
@@ -35,6 +49,7 @@ Single-File-PWA. Die einzige zu ändernde Datei ist `skyalarm.html`. Alle Stile,
 
 - [airplanes.live](https://airplanes.live/) — Live-ADS-B-Feed
 - [DiPUL WMS](https://www.dipul.de/) — Luftraumzonen Deutschland
+- [BrightSky](https://brightsky.dev/) — Wetterdaten des Deutschen Wetterdienstes (Wind, Böen, Temperatur, Taupunkt, Niederschlag, Sicht)
 - [Leaflet](https://leafletjs.com/) — Karten-Engine
 - [CARTO](https://carto.com/) / [OpenStreetMap](https://www.openstreetmap.org/) / [Esri](https://www.esri.com/) — Tile-Server
 
@@ -68,7 +83,9 @@ Erstmaliges Setup (Referenz, falls eine Spiegelinstanz aufgesetzt werden soll):
 
 ## Versionierung
 
-Die Versionsnummer steht ausschließlich in `const APP_VER` in `skyalarm.html` (Zeile ~415) und wird per DOM-Updater an Header (`<sup class="l-ver">`) und Info-Modal (`<span class="l-ver">`) propagiert.
+Die Versionsnummer steht ausschließlich in `const APP_VER` in `skyalarm.html` (Anker `[J-VER]`, Zeile ~677) und wird per DOM-Updater an Header (`<sup class="l-ver">`) und Info-Modal (`<span class="l-ver">`) propagiert. Aktueller Stand: **v0.16**.
+
+Die vollständige Versions-Historie ist in `CLAUDE.md` dokumentiert.
 
 ## Lizenz / Haftung
 
