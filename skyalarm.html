@@ -796,7 +796,7 @@
 
   <script>
     /* [J-VER] Versionsnummer — einzige Stelle */
-    const APP_VER = '0.25';
+    const APP_VER = '0.26';
     document.querySelectorAll('.l-ver').forEach(e => e.textContent = APP_VER);
 
     /* [J-I18N] Internationalisierung — DE/EN, alarm-spezifisch */
@@ -1462,8 +1462,12 @@
         const dist = avDist(AV.lat, AV.lon, a.lat, a.lon);
         const alt = altFt(a);
         const isLow = alt < AV.ALT_LIMIT_FT;
-        // Farbpalette mit hoher Sättigung — auch im Dark-Mode klar lesbar
+        // Farbpalette mit hoher Sättigung — auch im Dark-Mode klar lesbar.
+        // OGN-Targets erhalten einen gedeckten Cyan-Ton (#0891b2), um sie visuell
+        // vom ADS-B-Verkehr abzugrenzen. Alarm-Rot bleibt quellunabhängig identisch.
+        const isOgn = (a.source === 'ogn');
         const clr = (isLow && dist < AV.RADIUS_KM) ? '#ff3838'
+                  : isOgn                            ? '#0891b2'
                   : isLow                            ? '#ffb300'
                   : dist < 5                         ? '#22d3ee'
                                                      : '#a78bfa';

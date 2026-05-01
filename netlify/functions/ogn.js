@@ -17,8 +17,16 @@
 
 // OGN-Typ-Code (numerisch, 0–14) → ADS-B-Emitter-Kategorie
 // Quelle: https://github.com/glidernet/ogn-aprs-protocol
+//
+// Typ 0 („unknown") wird hier bewusst NICHT eingetragen, sondern weiter unten
+// im Parser über eine geschwindigkeitsbasierte Heuristik klassifiziert — siehe
+// classifyUnknownByGs(). Hintergrund: nicht klassifizierte FLARM-/OGN-Tracker-
+// Geräte sind ohne Speed-Kontext nicht sicher zuzuordnen (Gleitschirm vs. Segel-
+// flieger vs. Motormaschine), die Default-Anzeige als Flächenflugzeug ist jedoch
+// in Soaring-Regionen optisch irreführend.
+//
+// Typ 13/14 (static object) sind keine Fluggeräte und werden im Parser entfernt.
 const OGN_TO_CAT = {
-  '0': '',     // unbekannt
   '1': 'B1',   // glider/motor glider           → Segelflieger
   '2': 'A1',   // tow plane                     → Schleppmaschine (light)
   '3': 'A7',   // helicopter / rotorcraft       → Helikopter
@@ -31,9 +39,20 @@ const OGN_TO_CAT = {
   '10': 'B2',  // balloon                       → Lighter-than-air
   '11': 'B2',  // airship                       → Luftschiff
   '12': 'B6',  // UAV / drone                   → Drohne
-  '13': '',    // static object
-  '14': '',    // static object
 };
+const OGN_STATIC = new Set(['13', '14']);   // Bodenstationen, keine Fluggeräte
+
+// Speed-basierte Klassifizierung für unbekannte/fehlende OGN-Typ-Codes.
+// Schwellen orientieren sich an typischen Flugbereichen:
+//   Gleitschirm/Drachen: bis ~90 km/h (≈ 49 kt)
+//   Segelflieger:        90–160 km/h (≈ 49–86 kt)
+//   motorisiert:         darüber
+function classifyUnknownByGs(speedKt) {
+  if (!isFinite(speedKt) || speedKt < 0) return 'B4';   // ohne Speed: vorsichtige Annahme Gleitschirm
+  if (speedKt < 50) return 'B4';   // < ~92 km/h
+  if (speedKt < 86) return 'B1';   // ~92–160 km/h
+  return 'A1';                      // motorisiert
+}
 
 function clamp(n, lo, hi) {
   return Math.max(lo, Math.min(hi, n));
@@ -57,6 +76,7 @@ function parseOgnXml(xml) {
     const speedKmh = parseFloat(f[8]) || 0;
     const speedKt = speedKmh / 1.852;            // → kt (Client rechnet × 0.5144 → m/s)
     const ognType = String(f[10] || '').trim();
+    if (OGN_STATIC.has(ognType)) continue;        // statische Objekte überspringen
     const icaoHex = String(f[12] || '').trim();
     const ognId = String(f[13] || '').trim();
     const fullId = String(f[3] || '').trim();    // bevorzugt; z. B. "D-AIRH" statt "RH"
@@ -64,6 +84,10 @@ function parseOgnXml(xml) {
     // OGN-only-Targets (FLARM, OGN-Tracker) erhalten Pseudo-Hex mit Präfix,
     // damit Deduplizierung mit echten ICAO-Hex-Targets nicht fälschlich greift.
     const hex = (icaoHex && icaoHex !== '0') ? icaoHex.toLowerCase() : ('ogn-' + ognId);
+
+    // Kategorie: bekannte OGN-Typen direkt übernehmen, unbekannte/fehlende
+    // über die Speed-Heuristik klassifizieren.
+    const category = OGN_TO_CAT[ognType] || classifyUnknownByGs(speedKt);
 
     out.push({
       lat,
@@ -73,7 +97,7 @@ function parseOgnXml(xml) {
       track: trackDeg,
       gs: speedKt,
       alt_baro: altFt,
-      category: OGN_TO_CAT[ognType] || '',
+      category,
       source: 'ogn',
     });
   }
