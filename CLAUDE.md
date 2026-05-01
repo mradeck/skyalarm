@@ -41,7 +41,7 @@ Bewusst **nicht enthalten** (im Gegensatz zu SkyCheck):
 **Datei:** `skyalarm.html` (Single-File HTML/JS/CSS, ~1170 Zeilen)
 **Live:** https://skyalarm.netlify.app/
 **Repo:** https://github.com/mradeck/skyalarm (Default-Branch: `main`)
-**Aktuell:** v0.24 — Fluggerät-Popup persistiert über Poll-Zyklen hinweg, schließt sich nicht mehr nach 2 s automatisch
+**Aktuell:** v0.25 — OGN-Anbindung über Netlify-Function-Proxy zu live.glidernet.org/lxml.php; Targets werden mit ADS-B-Feed dedupliziert und als „OGN" / „ADS-B+OGN" gekennzeichnet
 
 ---
 
@@ -52,13 +52,14 @@ Bewusst **nicht enthalten** (im Gegensatz zu SkyCheck):
 | Quelle | Endpoint | CORS | Zweck |
 |---|---|---|---|
 | **airplanes.live** | `https://api.airplanes.live/v2/point/{lat}/{lon}/10` | ja | Live-ADS-B-Feed (10 NM Radius, JSON) |
+| **OGN-Proxy** | `/.netlify/functions/ogn?lat={lat}&lon={lon}&km={km}` | n/a (gleiche Origin) | Open-Glider-Network-Daten (FLARM, OGN-Tracker, teilweise ADS-B) — Netlify-Function ruft `live.glidernet.org/lxml.php` und normalisiert auf airplanes.live-Schema |
 | **DiPUL WMS** | `https://uas-betrieb.de/geoservices/dipul/wms` | ja (für GetFeatureInfo & Tiles) | Luftraumzonen Deutschland |
 | **BrightSky** | `https://api.brightsky.dev/weather` | ja | DWD-Wetter (Wind, Böen, Temperatur, Taupunkt, Niederschlag, Sicht) |
 | **CARTO Basemaps** | `basemaps.cartocdn.com` | – | Dark/Hell-Tile-Layer |
 | **OpenStreetMap** | `tile.openstreetmap.org` | – | OSM-Tile-Layer |
 | **ESRI World Imagery** | `server.arcgisonline.com` | – | Satellit-Tile-Layer |
 
-Alle Endpoints sind **direkt vom Browser erreichbar**; im Gegensatz zu SkyCheck wird **keine Netlify-Function** als CORS-Proxy benötigt (NOAA AWC fehlt).
+Alle ADS-B-, Wetter- und DiPUL-Endpoints sind direkt vom Browser erreichbar. Für OGN ist seit v0.25 eine schlanke Netlify-Function (`netlify/functions/ogn.js`) zwischengeschaltet, weil `live.glidernet.org/lxml.php` keine CORS-Header setzt und ein XML-Format liefert, das serverseitig auf das airplanes.live-JSON-Schema normalisiert wird.
 
 ### Code-Struktur
 
@@ -167,6 +168,7 @@ Für Recherche, Visualisierung, Computer-Use; Code-Änderungen vorzugsweise via 
 | v0.22 | Aircraft-Tooltip (Klassen `av-tt-low` und `av-tt-norm`) typografisch differenziert, damit Zahlenwerte klarer hervortreten: (a) Tooltip-Inhalt von reinem Text auf HTML mit Hilfsspans `span.av-cs` (Kennung) und `span.av-u` (Einheiten „m" und „m/s") umgestellt. (b) Trennzeichen-Punkt „·" nach der Kennung ergänzt — Format ändert sich von `DLH123 850m · 230.5 m/s` auf `DLH123 · 850m · 230.5 m/s`, die drei Felder Kennung / Höhe / Speed sind nun symmetrisch durch Mittenpunkte separiert. (c) CSS-Regeln dimmen `.av-cs` und `.av-u` auf 55 % Deckkraft (`rgba(0,0,0,0.55)` auf gelbem Tiefflieger-Tooltip; `rgba(230,247,255,0.55)` auf dunklem Standard-Tooltip; Light-Mode-Variante `rgba(3,51,51,0.55)`), Schriftgewicht der Einheiten leicht reduziert |
 | v0.23 | Fluggerät-Symbolik nach ADS-B-Emitter-Kategorie (DO-260B 2.2.3.2.5.2) ausdifferenziert: Neue Mapping-Funktion `_kindFromCat(cat)` ordnet die im ADS-B-Feld `category` gelieferten Codes auf sieben Symbolklassen ab — A7 → Helikopter, B1 → Segelflieger, B2 → Luftschiff (Zeppelin), B3 → Fallschirm, B4 → Gleitschirm/Drachen, B6 → Drohne, sonst → Flächenflugzeug. `_acSvg(hdg, col, kind, sz)` rendert für jede Klasse ein eigenes SVG (24 × 24 viewBox); Fallschirm wird ohne Track-Rotation dargestellt, da das Heading-Feld dort keine Aussagekraft hat. Tooltip und Popup ergänzen den Typ als Klartext (DE/EN-Lokalisierung über neue I18N-Keys `ac_helo`, `ac_glider`, `ac_airship`, `ac_parachute`, `ac_paraglider`, `ac_drone`); Popup-Klasse `.ac-kind` setzt das Typenlabel kursiv und mit reduzierter Deckkraft. Hintergrund: Auswertungsgrundlage ist ausschließlich der vom airplanes.live-Feed gelieferte ADS-B-Datensatz; nicht-ADS-B-Verkehr (FLARM, OGN, ADS-L, FANET) bleibt unsichtbar — siehe Recherche-Notiz zu SafeSky |
 | v0.24 | Popup-Persistenz: Bisher wurde das durch Marker-Klick geöffnete Info-Popup beim nächsten ADS-B-Poll (alle 2 s) automatisch geschlossen, weil `AV.acLayer.clearLayers()` alle Marker zerstört und neu aufbaut. Lösung: neuer State-Eintrag `AV.openPopupHex` merkt den Hex-Code des aktuell offenen Fluggeräts; auf jedem neu erzeugten Marker werden `popupopen` und `popupclose` per Leaflet-Event-Handler gebunden, und falls der Hex bei Marker-Erstellung dem gespeicherten entspricht, wird `openPopup()` direkt aufgerufen. Damit bleibt das Popup geöffnet, bis der Nutzer es bewusst schließt (Klick außerhalb oder auf einen anderen Marker), das Tracking des Fluggeräts während offener Anzeige bleibt unverändert |
+| v0.25 | OGN-Anbindung (Open Glider Network) als zweite Verkehrsquelle: (a) Neue Netlify-Function `netlify/functions/ogn.js` ruft Bbox-gefilterte Live-Daten von `live.glidernet.org/lxml.php` ab, parst das XML-Marker-Format (14 Felder: Lat, Lon, csShort, csFull, altM, ts, sec, track, speedKmh, vSpeed, ognType, receiver, icaoHex, ognId), bildet OGN-Typ-Codes 0–14 auf ADS-B-Emitter-Kategorien ab (`B1` Segelflieger, `A7` Helikopter, `B3` Fallschirm, `B4` Drachen/Gleitschirm, `B2` Ballon/Luftschiff, `B6` Drohne, `A1`/`A2` motorisiert) und liefert das Ergebnis als JSON im airplanes.live-Schema mit `source:'ogn'`. Function-Timeout 7 s, CORS-Header gesetzt, CDN-Cache 4 s. (b) `netlify.toml` ergänzt um `functions = "netlify/functions"` und `[functions] node_bundler = "esbuild"`. (c) `avPoll()` ruft ADS-B und OGN per `Promise.all` parallel ab, mergt über ICAO-Hex (ADS-B-Datensatz hat Vorrang, OGN-Hex ohne ICAO erhält Pseudo-Präfix `ogn-…`); reine OGN-Targets erhalten den Tag „OGN", duale Targets „ADS-B+OGN". (d) Neue CSS-Klasse `.ac-src` rendert den Quellen-Tag als kleines, abgesetztes Pill-Label im Popup. Hintergrund: ADS-B (1090 MHz) erfasst Segelflieger, Paragleiter, Drachenflieger, Drohnen mit FLARM/OGN-tracker und Heißluftballons systematisch nicht — siehe SafeSky-Recherche zu v0.23 |
 
 ---
 

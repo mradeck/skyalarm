@@ -3,6 +3,10 @@
 
 [build]
   publish = "."
+  functions = "netlify/functions"
+
+[functions]
+  node_bundler = "esbuild"
 
 # Root → /skyalarm.html (saubere URL ohne Endung)
 [[redirects]]

@@ -229,6 +229,21 @@
     /* Aircraft popup */
     .ac-popup b { color: var(--accent); }
     .ac-popup .ac-kind { opacity: 0.7; font-style: italic; }
+    .ac-src {
+      display: inline-block;
+      font-size: 0.62rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      padding: 0 4px;
+      border-radius: 3px;
+      background: rgba(34,211,238,0.18);
+      color: rgba(34,211,238,1);
+      vertical-align: 1px;
+    }
+    #app-view.av-light .ac-src {
+      background: rgba(0,150,180,0.15);
+      color: #0596a8;
+    }
 
     /* Radius-Info-Overlay (5 s, beim Toggle-Click) */
     .av-radius-info {
@@ -781,7 +796,7 @@
 
   <script>
     /* [J-VER] Versionsnummer — einzige Stelle */
-    const APP_VER = '0.24';
+    const APP_VER = '0.25';
     document.querySelectorAll('.l-ver').forEach(e => e.textContent = APP_VER);
 
     /* [J-I18N] Internationalisierung — DE/EN, alarm-spezifisch */
@@ -930,6 +945,7 @@
     /* [J-CONFIG] Konstanten und Konfiguration */
     const DIPUL_WMS_URL = 'https://uas-betrieb.de/geoservices/dipul/wms';
     const ADSB_URL = 'https://api.airplanes.live/v2/point';
+    const OGN_URL = '/.netlify/functions/ogn';   // Proxy für live.glidernet.org/lxml.php
     const BRIGHTSKY_URL = 'https://api.brightsky.dev/weather';
     const DIPUL_ALL_LAYERS = 'bahnanlagen,behoerden,binnenwasserstrassen,bundesautobahnen,bundesstrassen,diplomatische_vertretungen,ffh-gebiete,flugbeschraenkungsgebiete,flughaefen,flugplaetze,freibaeder,haengegleiter,inaktive_temporaere_betriebseinschraenkungen,industrieanlagen,internationale_organisationen,justizvollzugsanstalten,kontrollzonen,kraftwerke,krankenhaeuser,labore,militaerische_anlagen,modellflugplaetze,nationalparks,naturschutzgebiete,polizei,schifffahrtsanlagen,seewasserstrassen,sicherheitsbehoerden,stromleitungen,temporaere_betriebseinschraenkungen,umspannwerke,vogelschutzgebiete,windkraftanlagen,wohngrundstuecke';
     function getActiveDipulLayers() { return DIPUL_ALL_LAYERS; }
@@ -1403,12 +1419,33 @@
     function avStartPoll() { avPoll(); AV.interval = setInterval(avPoll, AV.POLL_MS); }
 
     async function avPoll() {
-      try {
-        const r = await fetch(ADSB_URL + '/' + AV.lat + '/' + AV.lon + '/10');
-        const d = await r.json();
-        avUpdateMarkers(d.ac || []);
-        avCheckProx(d.ac || []);
-      } catch (e) { }
+      // ADS-B (api.airplanes.live, 10 NM Radius) und OGN-Proxy parallel abrufen.
+      // Fehler an einer Quelle beeinträchtigen die andere nicht — die jeweils erfolgreiche
+      // Antwort fließt regulär in den Marker-Aufbau ein.
+      const km = AV.SCAN_KM.toFixed(1);
+      const adsbP = fetch(ADSB_URL + '/' + AV.lat + '/' + AV.lon + '/10')
+        .then(r => r.json()).then(d => (d.ac || []).map(a => ({ ...a, source: a.source || 'ads-b' })))
+        .catch(() => []);
+      const ognP = fetch(OGN_URL + '?lat=' + AV.lat + '&lon=' + AV.lon + '&km=' + km)
+        .then(r => r.ok ? r.json() : { ac: [] }).then(d => d.ac || [])
+        .catch(() => []);
+      const [adsb, ogn] = await Promise.all([adsbP, ognP]);
+      // Deduplizierung über ICAO-Hex: ADS-B hat Vorrang, OGN ergänzt nur fehlende Targets
+      const merged = new Map();
+      adsb.forEach(a => { if (a.hex) merged.set(a.hex.toLowerCase(), a); });
+      ogn.forEach(a => {
+        const key = (a.hex || '').toLowerCase();
+        if (!key) return;
+        if (merged.has(key)) {
+          // Beide Feeds kennen das Target — markieren, ADS-B-Datensatz behalten
+          merged.get(key).dual_source = true;
+        } else {
+          merged.set(key, a);
+        }
+      });
+      const planes = Array.from(merged.values());
+      avUpdateMarkers(planes);
+      avCheckProx(planes);
     }
 
     function avUpdateMarkers(planes) {
@@ -1443,8 +1480,12 @@
         const altM = Math.round(alt * 0.3048);
         const spdMs = (a.gs != null) ? (a.gs * 0.5144).toFixed(1) : '?';
         const kindLbl = (kind !== 'plane') ? _t('ac_' + kind) : '';
+        const srcTag = (a.source === 'ogn') ? ' · <span class="ac-src">OGN</span>'
+                     : (a.dual_source)      ? ' · <span class="ac-src">ADS-B+OGN</span>'
+                                            : '';
         const info = '<b>' + cs + '</b>' + (kindLbl ? ' · <span class="ac-kind">' + kindLbl + '</span>' : '')
-                   + '<br>' + dist.toFixed(1) + ' km · ' + altM + ' m (' + (a.alt_baro || '?') + ' ft) · ' + spdMs + ' m/s';
+                   + '<br>' + dist.toFixed(1) + ' km · ' + altM + ' m (' + (a.alt_baro || '?') + ' ft) · ' + spdMs + ' m/s'
+                   + srcTag;
         m.bindPopup(info);
         // Popup-Persistenz über Poll-Zyklen hinweg: bei jedem Poll werden Marker neu aufgebaut,
         // ohne diese Logik schließt sich das Popup nach POLL_MS (2 s). Hex merken und neu öffnen.
