@@ -781,7 +781,7 @@
 
   <script>
     /* [J-VER] Versionsnummer — einzige Stelle */
-    const APP_VER = '0.23';
+    const APP_VER = '0.24';
     document.querySelectorAll('.l-ver').forEach(e => e.textContent = APP_VER);
 
     /* [J-I18N] Internationalisierung — DE/EN, alarm-spezifisch */
@@ -942,6 +942,7 @@
       lat: null, lon: null,
       lastZones: [], lastWeather: null,
       zonesOn: true, lightMode: false, alarmOn: false, allLabels: false, styleIdx: 0,
+      openPopupHex: null,
       RADIUS_KM: 2, POLL_MS: 2000, ALT_LIMIT_FT: 984, SCAN_KM: 18.52, TRAIL_SEC: 60,
       RADIUS_OPTS: [2, 4, 6], radiusIdx: 0, radiusInfoTimer: null,
       WEATHER_POLL_MS: 600000, /* alle 10 min Wetter aktualisieren */
@@ -1445,6 +1446,11 @@
         const info = '<b>' + cs + '</b>' + (kindLbl ? ' · <span class="ac-kind">' + kindLbl + '</span>' : '')
                    + '<br>' + dist.toFixed(1) + ' km · ' + altM + ' m (' + (a.alt_baro || '?') + ' ft) · ' + spdMs + ' m/s';
         m.bindPopup(info);
+        // Popup-Persistenz über Poll-Zyklen hinweg: bei jedem Poll werden Marker neu aufgebaut,
+        // ohne diese Logik schließt sich das Popup nach POLL_MS (2 s). Hex merken und neu öffnen.
+        m.on('popupopen',  () => { AV.openPopupHex = hex; });
+        m.on('popupclose', () => { if (AV.openPopupHex === hex) AV.openPopupHex = null; });
+        if (AV.openPopupHex === hex) m.openPopup();
         // Permanente Tooltips: Tiefflieger immer; alle übrigen nur bei aktiviertem Labels-Toggle
         const ttHtml = '<span class="av-cs">' + cs + '</span> · '
                      + (kindLbl ? '<span class="av-u">' + kindLbl + '</span> · ' : '')
