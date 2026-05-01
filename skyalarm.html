@@ -473,6 +473,7 @@
       margin-left: 0.4rem;
       vertical-align: super;
     }
+    #splash h1 .alarm-red { color: #ef4444; }
     #splash p {
       margin: 0;
       color: var(--text2);
@@ -645,7 +646,7 @@
   </div>
 
   <div id="splash">
-    <h1>SkyAlarm <sup class="l-ver"></sup></h1>
+    <h1>Sky<span class="alarm-red">Alarm</span> <sup class="l-ver"></sup></h1>
     <p data-i18n="splashIntro">Echtzeit-Tiefflieger-Alarm und Geozonen-Karte. Für die volle Funktion wird der aktuelle Standort benötigt.</p>
     <button class="splash-btn" id="splash-gps" data-i18n="splashGps">Standort verwenden</button>
     <button class="splash-btn secondary" id="splash-default" data-i18n="splashDefault">Mit Standardposition starten (München)</button>
@@ -674,7 +675,7 @@
 
   <script>
     /* [J-VER] Versionsnummer — einzige Stelle */
-    const APP_VER = '0.17';
+    const APP_VER = '0.18';
     document.querySelectorAll('.l-ver').forEach(e => e.textContent = APP_VER);
 
     /* [J-I18N] Internationalisierung — DE/EN, alarm-spezifisch */
