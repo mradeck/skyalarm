@@ -222,6 +222,50 @@
     /* Aircraft popup */
     .ac-popup b { color: var(--accent); }
 
+    /* Radius-Info-Overlay (5 s, beim Toggle-Click) */
+    .av-radius-info {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%) scale(0.96);
+      z-index: 1100;
+      background: rgba(15, 25, 40, 0.92);
+      color: #fff;
+      border: 1px solid #ef4444;
+      border-radius: 10px;
+      padding: 0.85rem 1.1rem;
+      font-size: 0.82rem;
+      line-height: 1.45;
+      box-shadow: 0 6px 24px rgba(0,0,0,0.45);
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.18s ease, transform 0.18s ease;
+      max-width: 18rem;
+      text-align: left;
+    }
+    .av-radius-info.show {
+      opacity: 1;
+      transform: translate(-50%, -50%) scale(1);
+    }
+    .av-radius-info .ri-hdr {
+      font-weight: 700;
+      color: #ff5e5e;
+      margin-bottom: 0.3rem;
+      font-size: 0.9rem;
+    }
+    .av-radius-info .ri-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 0.8rem;
+      font-variant-numeric: tabular-nums;
+    }
+    .av-radius-info .ri-row span:first-child { opacity: 0.78; }
+    #app-view.av-light .av-radius-info {
+      background: rgba(255,255,255,0.96);
+      color: #222;
+      box-shadow: 0 6px 24px rgba(0,0,0,0.18);
+    }
+
     /* === TOP-RIGHT-STACK: Kompakt-Overlay + Detail-Overlay ===
        Position oben rechts, aber unterhalb der Topbar. Höhe so begrenzt,
        dass die rechte Steuerleiste (av-ctrl, ca. 230 px ab Boden) frei bleibt. */
@@ -491,6 +535,26 @@
       vertical-align: super;
     }
     #splash h1 .alarm-red { color: #ef4444; }
+    #splash .splash-srcs {
+      max-width: 22rem;
+      justify-content: center;
+      margin-top: 0.6rem;
+    }
+    #splash .splash-srcs a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+    #splash .splash-srcs a:hover { text-decoration: underline; }
+    #splash .splash-foot {
+      font-size: 0.7rem;
+      opacity: 0.55;
+      margin-top: 0.5rem;
+    }
+    #splash .splash-foot a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+    #splash .splash-foot a:hover { text-decoration: underline; }
     #splash p {
       margin: 0;
       color: var(--text2);
@@ -650,10 +714,12 @@
       <button class="av-btn" id="av-gps" data-i18n-title="ctrlGps" title="GPS">⊕</button>
       <button class="av-btn on" id="av-zones" data-i18n-title="ctrlZones" title="Geozonen">⬡</button>
       <button class="av-btn" id="av-labels" data-i18n-title="ctrlLabels" title="Fluggerät-Infos einblenden">✈</button>
+      <button class="av-btn" id="av-radius" data-i18n-title="ctrlRadius" title="Detektionsradius">◎</button>
       <button class="av-btn" id="av-style" data-i18n-title="ctrlStyle" title="Kartenstil">⧉</button>
       <button class="av-btn" id="av-theme" data-i18n-title="ctrlTheme" title="Hell/Dunkel">☀</button>
       <button class="av-btn" id="av-info" data-i18n-title="ctrlInfo" title="Info">ⓘ</button>
     </div>
+    <div id="av-radius-info" class="av-radius-info"></div>
     <div class="pwa-banner" id="pwa-banner">
       <span>📲 <span data-i18n="pwaText">SkyAlarm als App installieren</span></span>
       <div class="pwa-actions">
@@ -669,6 +735,16 @@
     <button class="splash-btn" id="splash-gps" data-i18n="splashGps">Standort verwenden</button>
     <button class="splash-btn secondary" id="splash-default" data-i18n="splashDefault">Mit Standardposition starten (München)</button>
     <p id="splash-status" style="font-size:0.75rem;opacity:0.65;"></p>
+    <div class="modal-srcs splash-srcs">
+      <a href="https://www.dipul.de/" target="_blank" rel="noopener">DiPUL WMS</a>
+      <a href="https://airplanes.live/" target="_blank" rel="noopener">airplanes.live</a>
+      <a href="https://leafletjs.com/" target="_blank" rel="noopener">Leaflet</a>
+      <a href="https://www.openstreetmap.org/" target="_blank" rel="noopener">OpenStreetMap</a>
+      <a href="https://carto.com/attributions" target="_blank" rel="noopener">CARTO</a>
+      <a href="https://www.michael-radeck.de" target="_blank" rel="noopener">michael-radeck.de</a>
+      <a href="https://ko-fi.com/mradeck/tip" target="_blank" rel="noopener">☕ Ko-fi</a>
+    </div>
+    <p class="splash-foot">SkyAlarm v<span class="l-ver"></span> · <a href="https://enchanting-stardust-f713da.netlify.app/skycheck.html" target="_blank" rel="noopener">SkyCheck</a></p>
   </div>
 
   <div id="info-modal" class="modal-overlay hidden">
@@ -693,7 +769,7 @@
 
   <script>
     /* [J-VER] Versionsnummer — einzige Stelle */
-    const APP_VER = '0.19';
+    const APP_VER = '0.20';
     document.querySelectorAll('.l-ver').forEach(e => e.textContent = APP_VER);
 
     /* [J-I18N] Internationalisierung — DE/EN, alarm-spezifisch */
@@ -705,9 +781,13 @@
         ctrlGps: 'Aktuellen Standort verwenden',
         ctrlZones: 'Geozonen ein/aus',
         ctrlLabels: 'Fluggerät-Infos dauerhaft einblenden',
+        ctrlRadius: 'Detektionsradius umschalten',
         ctrlStyle: 'Kartenstil wechseln',
         ctrlTheme: 'Hell/Dunkel umschalten',
         ctrlInfo: 'Über SkyAlarm',
+        riHdr: 'Detektionsradius',
+        riReact: 'Reaktionszeit',
+        riAt: 'bei',
         langTitle: 'Sprache wechseln',
         lowAltHdr: '⚠ Tiefflieger (<300 m)',
         splashIntro: 'Echtzeit-Tiefflieger-Alarm und Geozonen-Karte. Für die volle Funktion wird der aktuelle Standort benötigt.',
@@ -751,9 +831,13 @@
         ctrlGps: 'Use current location',
         ctrlZones: 'Toggle airspace zones',
         ctrlLabels: 'Show aircraft labels permanently',
+        ctrlRadius: 'Cycle detection radius',
         ctrlStyle: 'Cycle map style',
         ctrlTheme: 'Toggle light/dark',
         ctrlInfo: 'About SkyAlarm',
+        riHdr: 'Detection radius',
+        riReact: 'Reaction time',
+        riAt: 'at',
         langTitle: 'Switch language',
         lowAltHdr: '⚠ Low-altitude aircraft (<300 m)',
         splashIntro: 'Real-time low-altitude aircraft alert and airspace map. Full functionality requires your current location.',
@@ -835,6 +919,7 @@
       lastZones: [], lastWeather: null,
       zonesOn: true, lightMode: false, alarmOn: false, allLabels: false, styleIdx: 0,
       RADIUS_KM: 2, POLL_MS: 2000, ALT_LIMIT_FT: 984, SCAN_KM: 18.52, TRAIL_SEC: 60,
+      RADIUS_OPTS: [2, 4, 6], radiusIdx: 0, radiusInfoTimer: null,
       WEATHER_POLL_MS: 600000, /* alle 10 min Wetter aktualisieren */
       STYLES: [
         { n: 'Dark', u: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', a: '©CARTO', s: 'abcd' },
@@ -1357,6 +1442,43 @@
       el.innerHTML = '<div class="av-lowalt-hdr">' + _t('lowAltHdr') + '</div>' + rows;
     }
 
+    /* [J-RADIUS] Detektionsradius umschalten und Reaktionszeit-Overlay einblenden */
+    function setDetectionRadius(idx) {
+      const opts = AV.RADIUS_OPTS;
+      AV.radiusIdx = ((idx % opts.length) + opts.length) % opts.length;
+      AV.RADIUS_KM = opts[AV.radiusIdx];
+      if (AV.radiusCirc) AV.radiusCirc.setRadius(AV.RADIUS_KM * 1000);
+      showRadiusInfo();
+      // Proximity-Logik sofort mit neuem Radius nachziehen
+      avPoll();
+    }
+
+    function showRadiusInfo() {
+      const el = $('av-radius-info');
+      if (!el) return;
+      const km = AV.RADIUS_KM;
+      const m = km * 1000;
+      // Reaktionszeiten für zwei typische Tiefflieger-Geschwindigkeiten
+      const fmt = (v) => {
+        const t = m / v;
+        if (t >= 60) {
+          const min = Math.floor(t / 60);
+          const sec = Math.round(t - min * 60);
+          return `${min} min ${sec.toString().padStart(2, '0')} s`;
+        }
+        return `${Math.round(t)} s`;
+      };
+      const t30 = fmt(30);   // 30 m/s ≈ 108 km/h (langsamer Tiefflieger)
+      const t60 = fmt(60);   // 60 m/s ≈ 216 km/h (typischer Tiefflieger)
+      el.innerHTML =
+        '<div class="ri-hdr">⊙ ' + _t('riHdr') + ': ' + km + ' km</div>'
+        + '<div class="ri-row"><span>' + _t('riReact') + ' ' + _t('riAt') + ' 30 m/s (≈108 km/h)</span><span>' + t30 + '</span></div>'
+        + '<div class="ri-row"><span>' + _t('riReact') + ' ' + _t('riAt') + ' 60 m/s (≈216 km/h)</span><span>' + t60 + '</span></div>';
+      el.classList.add('show');
+      if (AV.radiusInfoTimer) clearTimeout(AV.radiusInfoTimer);
+      AV.radiusInfoTimer = setTimeout(() => el.classList.remove('show'), 5000);
+    }
+
     /* [J-AUDIO] Web-Audio-Beep */
     let _avAudioCtx = null;
     function _avCtx() {
@@ -1457,6 +1579,12 @@
         $('av-labels').classList.toggle('on', AV.allLabels);
         // Labels sofort sichtbar machen, statt auf den nächsten Poll zu warten
         avPoll();
+      });
+
+      $('av-radius').addEventListener('click', () => {
+        setDetectionRadius(AV.radiusIdx + 1);
+        // Aktive Stufe ≠ Standard (Index 0) wird visuell markiert
+        $('av-radius').classList.toggle('on', AV.radiusIdx !== 0);
       });
 
       $('av-style').addEventListener('click', () => {

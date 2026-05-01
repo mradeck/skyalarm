@@ -41,7 +41,7 @@ Bewusst **nicht enthalten** (im Gegensatz zu SkyCheck):
 **Datei:** `skyalarm.html` (Single-File HTML/JS/CSS, ~1170 Zeilen)
 **Live:** https://skyalarm.netlify.app/
 **Repo:** https://github.com/mradeck/skyalarm (Default-Branch: `main`)
-**Aktuell:** v0.19 — Aircraft-Label-Toggle, Speed in m/s, hellere Marker- und Trail-Farbpalette
+**Aktuell:** v0.20 — Splash-Source-Links, Detektionsradius-Toggle (2/4/6 km), Reaktionszeit-Overlay
 
 ---
 
@@ -161,6 +161,7 @@ Für Recherche, Visualisierung, Computer-Use; Code-Änderungen vorzugsweise via 
 | v0.17 | App-Icon-Anpassung: `<linearGradient id="check">` in `skyalarm-icon.svg` von Grün (`#4ade80` → `#22c55e`) auf Rot (`#f87171` → `#ef4444`) umgestellt; PNG-Assets `icon-192x192.png` und `icon-512x512.png` neu gerendert. Zweck: visuelle Abgrenzung des Home-Screen-Icons gegenüber SkyCheck |
 | v0.18 | Splash-Titel: Wortteil „Alarm" in `<h1>` per `<span class="alarm-red">` rot (`#ef4444`) gegen den Default-Akzentton abgesetzt; CSS-Regel `#splash h1 .alarm-red` ergänzt. Zweck: visuelle Konsistenz zwischen App-Icon und Titelschriftzug |
 | v0.19 | (a) Toggle-Button `#av-labels` (Symbol „✈") in der Steuerleiste ergänzt; aktivierter Zustand setzt `AV.allLabels = true` und blendet permanente Tooltips (Callsign, Höhe, Geschwindigkeit) für **alle** Marker ein, neue CSS-Klasse `.av-tt-norm` mit Light/Dark-Adaption. (b) Geschwindigkeitsangabe in Popup und Tiefflieger-Detailliste von `kts` bzw. `km/h` auf `m/s` umgestellt (`a.gs × 0.5144`, eine Nachkommastelle). (c) Marker- und Trail-Farbpalette aufgehellt: Alarm `#ff3838`, Tiefflieger weit `#ffb300`, Reisehöhe nah `#22d3ee` (Cyan), Reisehöhe fern `#a78bfa` (Lavendel); Trail-Mindestopazität 0.10 → 0.30, Linienstärke 1.5/2.5 → 2.2/3.0. Stale-Trails ehemaliger Marker nun ebenfalls in Lavendel statt Olivgrün |
+| v0.20 | (a) Splash-Seite um Source-Link-Leiste (`.modal-srcs.splash-srcs`) und kompakten Footer mit Versionsstring + SkyCheck-Link erweitert; CSS-Hooks `#splash .splash-srcs` und `#splash .splash-foot` ergänzt. (b) Neuer Toggle-Button `#av-radius` (Symbol „◎") cycled durch `RADIUS_OPTS = [2, 4, 6]` km; aktive Stufen ≠ Default markieren den Button per `.on`. Funktion `setDetectionRadius(idx)` aktualisiert `AV.RADIUS_KM`, ruft `radiusCirc.setRadius()` auf und triggert sofort `avPoll()`, damit `avCheckProx` den neuen Radius sofort wirksam macht. (c) Reaktionszeit-Overlay `#av-radius-info`: zentral platziert, blendet beim Toggle für 5 s ein und zeigt aktuellen Radius zusammen mit Reaktionszeiten bei 30 m/s (≈108 km/h) und 60 m/s (≈216 km/h); Light-Mode-Variante via `#app-view.av-light .av-radius-info`. Neue i18n-Keys `ctrlRadius`, `riHdr`, `riReact`, `riAt` |
 
 ---
 
