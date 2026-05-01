@@ -41,7 +41,7 @@ Bewusst **nicht enthalten** (im Gegensatz zu SkyCheck):
 **Datei:** `skyalarm.html` (Single-File HTML/JS/CSS, ~1170 Zeilen)
 **Live:** https://skyalarm.netlify.app/
 **Repo:** https://github.com/mradeck/skyalarm (Default-Branch: `main`)
-**Aktuell:** v0.22 — Aircraft-Tooltip: Kennung und Einheiten gedimmt, zusätzlicher Trenn-Punkt nach der Kennung
+**Aktuell:** v0.23 — Fluggerät-Icons nach ADS-B-Emitter-Kategorie differenziert (Helikopter, Segelflieger, Luftschiff, Fallschirm, Gleitschirm, Drohne, Flächenflugzeug)
 
 ---
 
@@ -72,7 +72,7 @@ Alle Endpoints sind **direkt vom Browser erreichbar**; im Gegensatz zu SkyCheck 
 | `[J-DEWPOINT]` | `calcDewPoint` — Magnus-Tetens-Formel (Taupunkt aus T und RH) |
 | `[J-FETCHWEATHER]` | BrightSky-Abfrage; Temperatur/Taupunkt-Konvertierung Kelvin → °C |
 | `[J-RENDER-STATUS]` | `renderStatusOverlay` — Zonen-Kurzlabels, Wind/Böen, Vereisungsprognose 50 m, Eisalarm, Nebelalarm |
-| `[J-ICON]` | `_acSvg` — Aircraft-/Helikopter-SVG-Icon |
+| `[J-ICON]` | `_kindFromCat` (Mapping ADS-B-Kategorie → Symbol-Klasse) und `_acSvg` — sieben SVG-Varianten (Flächenflugzeug, Helikopter, Segelflieger, Luftschiff, Fallschirm, Gleitschirm/Drachen, Drohne) |
 | `[J-DIST]` | Haversine-Distanz |
 | `[J-MAP-INIT]` | `avInitMap` — Karte, Tile-Layer, Kreise, Marker |
 | `[J-START]` | `requestGps`, `startApp`, Splash-Screen-Flow |
@@ -164,6 +164,7 @@ Für Recherche, Visualisierung, Computer-Use; Code-Änderungen vorzugsweise via 
 | v0.20 | (a) Splash-Seite um Source-Link-Leiste (`.modal-srcs.splash-srcs`) und kompakten Footer mit Versionsstring + SkyCheck-Link erweitert; CSS-Hooks `#splash .splash-srcs` und `#splash .splash-foot` ergänzt. (b) Neuer Toggle-Button `#av-radius` (Symbol „◎") cycled durch `RADIUS_OPTS = [2, 4, 6]` km; aktive Stufen ≠ Default markieren den Button per `.on`. Funktion `setDetectionRadius(idx)` aktualisiert `AV.RADIUS_KM`, ruft `radiusCirc.setRadius()` auf und triggert sofort `avPoll()`, damit `avCheckProx` den neuen Radius sofort wirksam macht. (c) Reaktionszeit-Overlay `#av-radius-info`: zentral platziert, blendet beim Toggle für 5 s ein und zeigt aktuellen Radius zusammen mit Reaktionszeiten bei 30 m/s (≈108 km/h) und 60 m/s (≈216 km/h); Light-Mode-Variante via `#app-view.av-light .av-radius-info`. Neue i18n-Keys `ctrlRadius`, `riHdr`, `riReact`, `riAt` |
 | v0.21 | Reaktionszeit-Overlay (`#av-radius-info`) lesbarer und umbruchsicher: (a) Zeitformat von gemischtem „X min YY s" auf reine Sekunden umgestellt, da das Mischformat auf schmalen Layouts in zwei Zeilen brach. (b) Zahl-Einheit-Paare („X km", „30 m/s", „108 km/h" usw.) mit Non-breaking Space (U+00A0) gebunden; zusätzlich CSS-Schutz: `white-space: nowrap` auf `.ri-hdr` und `.ri-row span:last-child`, erste Zeilen-Span erhält `flex:1 1 auto; min-width:0`. (c) Container nutzt nun `width: max-content; max-width: min(92vw, 24rem)` statt fester 18 rem — passt sich Inhalt und Viewport adaptiv an. (d) Anzeigedauer 5 s → 7 s |
 | v0.22 | Aircraft-Tooltip (Klassen `av-tt-low` und `av-tt-norm`) typografisch differenziert, damit Zahlenwerte klarer hervortreten: (a) Tooltip-Inhalt von reinem Text auf HTML mit Hilfsspans `span.av-cs` (Kennung) und `span.av-u` (Einheiten „m" und „m/s") umgestellt. (b) Trennzeichen-Punkt „·" nach der Kennung ergänzt — Format ändert sich von `DLH123 850m · 230.5 m/s` auf `DLH123 · 850m · 230.5 m/s`, die drei Felder Kennung / Höhe / Speed sind nun symmetrisch durch Mittenpunkte separiert. (c) CSS-Regeln dimmen `.av-cs` und `.av-u` auf 55 % Deckkraft (`rgba(0,0,0,0.55)` auf gelbem Tiefflieger-Tooltip; `rgba(230,247,255,0.55)` auf dunklem Standard-Tooltip; Light-Mode-Variante `rgba(3,51,51,0.55)`), Schriftgewicht der Einheiten leicht reduziert |
+| v0.23 | Fluggerät-Symbolik nach ADS-B-Emitter-Kategorie (DO-260B 2.2.3.2.5.2) ausdifferenziert: Neue Mapping-Funktion `_kindFromCat(cat)` ordnet die im ADS-B-Feld `category` gelieferten Codes auf sieben Symbolklassen ab — A7 → Helikopter, B1 → Segelflieger, B2 → Luftschiff (Zeppelin), B3 → Fallschirm, B4 → Gleitschirm/Drachen, B6 → Drohne, sonst → Flächenflugzeug. `_acSvg(hdg, col, kind, sz)` rendert für jede Klasse ein eigenes SVG (24 × 24 viewBox); Fallschirm wird ohne Track-Rotation dargestellt, da das Heading-Feld dort keine Aussagekraft hat. Tooltip und Popup ergänzen den Typ als Klartext (DE/EN-Lokalisierung über neue I18N-Keys `ac_helo`, `ac_glider`, `ac_airship`, `ac_parachute`, `ac_paraglider`, `ac_drone`); Popup-Klasse `.ac-kind` setzt das Typenlabel kursiv und mit reduzierter Deckkraft. Hintergrund: Auswertungsgrundlage ist ausschließlich der vom airplanes.live-Feed gelieferte ADS-B-Datensatz; nicht-ADS-B-Verkehr (FLARM, OGN, ADS-L, FANET) bleibt unsichtbar — siehe Recherche-Notiz zu SafeSky |
 
 ---
 

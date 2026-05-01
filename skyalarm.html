@@ -228,6 +228,7 @@
 
     /* Aircraft popup */
     .ac-popup b { color: var(--accent); }
+    .ac-popup .ac-kind { opacity: 0.7; font-style: italic; }
 
     /* Radius-Info-Overlay (5 s, beim Toggle-Click) */
     .av-radius-info {
@@ -780,7 +781,7 @@
 
   <script>
     /* [J-VER] Versionsnummer — einzige Stelle */
-    const APP_VER = '0.22';
+    const APP_VER = '0.23';
     document.querySelectorAll('.l-ver').forEach(e => e.textContent = APP_VER);
 
     /* [J-I18N] Internationalisierung — DE/EN, alarm-spezifisch */
@@ -834,6 +835,12 @@
         dpCrit: 'Kritische Vereisung',
         dpFog: 'Nebelgefahr / Klareis',
         dpClear: 'Keine Gefahr',
+        ac_helo: 'Helikopter',
+        ac_glider: 'Segelflieger',
+        ac_airship: 'Luftschiff',
+        ac_parachute: 'Fallschirm',
+        ac_paraglider: 'Gleitschirm/Drachen',
+        ac_drone: 'Drohne',
       },
       en: {
         locInit: 'Determining location…',
@@ -884,6 +891,12 @@
         dpCrit: 'Critical icing risk',
         dpFog: 'Fog risk / Clear ice',
         dpClear: 'No risk',
+        ac_helo: 'Helicopter',
+        ac_glider: 'Glider',
+        ac_airship: 'Airship',
+        ac_parachute: 'Parachutist',
+        ac_paraglider: 'Paraglider/Hang-glider',
+        ac_drone: 'Drone',
       }
     };
     let LANG = localStorage.getItem('skyalarm-lang') || 'de';
@@ -1268,20 +1281,84 @@
       }
     }
 
-    /* [J-ICON] Aircraft-SVG — fixed-wing oder Helikopter */
-    function _acSvg(hdg, col, isHelo, sz) {
+    /* [J-ICON] Aircraft-SVG — Differenzierung nach ADS-B-Emitter-Kategorie (DO-260B 2.2.3.2.5.2)
+       Mapping: A7 → Helikopter, B1 → Segelflieger, B2 → Luftschiff, B3 → Fallschirm,
+       B4 → Gleitschirm/Drachen, B6 → Drohne, sonst → Flächenflugzeug */
+    function _kindFromCat(cat) {
+      cat = (cat || '').toUpperCase();
+      if (cat === 'A7') return 'helo';
+      if (cat === 'B1') return 'glider';
+      if (cat === 'B2') return 'airship';
+      if (cat === 'B3') return 'parachute';
+      if (cat === 'B4') return 'paraglider';
+      if (cat === 'B6') return 'drone';
+      return 'plane';
+    }
+    function _acSvg(hdg, col, kind, sz) {
       sz = sz || 26;
-      if (isHelo) {
-        return '<svg xmlns="http://www.w3.org/2000/svg" width="' + sz + '" height="' + sz + '" viewBox="-12 -12 24 24" style="transform:rotate(' + hdg + 'deg);display:block">'
+      // Fallschirm rotiert nicht — Heading ist ohne Aussage
+      const rot = (kind === 'parachute') ? 0 : (hdg || 0);
+      const open = '<svg xmlns="http://www.w3.org/2000/svg" width="' + sz + '" height="' + sz + '" viewBox="-12 -12 24 24" style="transform:rotate(' + rot + 'deg);display:block">';
+      const close = '</svg>';
+      const stroke = ' stroke="rgba(0,0,0,0.45)" stroke-width="0.5"';
+      if (kind === 'helo') {
+        return open
           + '<circle cx="0" cy="0" r="9.5" fill="none" stroke="' + col + '" stroke-width="0.7" stroke-dasharray="3,2.5" opacity="0.4"/>'
           + '<line x1="-6.7" y1="-6.7" x2="6.7" y2="6.7" stroke="' + col + '" stroke-width="1.2" stroke-linecap="round"/>'
           + '<line x1="-6.7" y1="6.7" x2="6.7" y2="-6.7" stroke="' + col + '" stroke-width="1.2" stroke-linecap="round"/>'
-          + '<ellipse cx="0" cy="0.5" rx="2.8" ry="5.5" fill="' + col + '" stroke="rgba(0,0,0,0.45)" stroke-width="0.5"/>'
-          + '</svg>';
+          + '<ellipse cx="0" cy="0.5" rx="2.8" ry="5.5" fill="' + col + '"' + stroke + '/>'
+          + close;
       }
-      return '<svg xmlns="http://www.w3.org/2000/svg" width="' + sz + '" height="' + sz + '" viewBox="-12 -12 24 24" style="transform:rotate(' + hdg + 'deg);display:block">'
-        + '<polygon points="0,-10 2,-6 2,-1 9,3 9,4.5 2,2 1.5,7 4.5,9 4.5,10.5 0,8.5 -4.5,10.5 -4.5,9 -1.5,7 -2,2 -9,4.5 -9,3 -2,-1 -2,-6" fill="' + col + '" stroke="rgba(0,0,0,0.45)" stroke-width="0.5" stroke-linejoin="round"/>'
-        + '</svg>';
+      if (kind === 'glider') {
+        // Schlanker Rumpf, lange dünne Flügel, T-Leitwerk
+        return open
+          + '<rect x="-11" y="-0.6" width="22" height="1.2" fill="' + col + '"/>'
+          + '<polygon points="-1,-9 1,-9 1.4,7.5 -1.4,7.5" fill="' + col + '"' + stroke + '/>'
+          + '<rect x="-3.6" y="7.6" width="7.2" height="1.2" fill="' + col + '"/>'
+          + close;
+      }
+      if (kind === 'airship') {
+        // Zeppelin: gestreckte Ellipse mit Heckflossen am hinteren Ende (links bei rot=0)
+        return open
+          + '<ellipse cx="0" cy="0" rx="10.5" ry="3.5" fill="' + col + '"' + stroke + '/>'
+          + '<polygon points="-10.5,0 -7.5,-4 -7.5,4" fill="rgba(0,0,0,0.4)"/>'
+          + '<line x1="3" y1="0" x2="9.5" y2="0" stroke="rgba(0,0,0,0.35)" stroke-width="0.6"/>'
+          + close;
+      }
+      if (kind === 'parachute') {
+        // Halbkuppel oben mit Wellenkante, Leinen und Person darunter
+        return open
+          + '<path d="M -8.5,-1 A 8.5 8.5 0 0 1 8.5 -1 L 7,0 L 5.5,-1.2 L 3.5,0 L 1.8,-1.2 L 0,0 L -1.8,-1.2 L -3.5,0 L -5.5,-1.2 L -7,0 Z" fill="' + col + '"' + stroke + '/>'
+          + '<line x1="-7" y1="0" x2="0" y2="7" stroke="' + col + '" stroke-width="0.7" opacity="0.65"/>'
+          + '<line x1="7" y1="0" x2="0" y2="7" stroke="' + col + '" stroke-width="0.7" opacity="0.65"/>'
+          + '<circle cx="0" cy="8" r="1.7" fill="' + col + '"' + stroke + '/>'
+          + close;
+      }
+      if (kind === 'paraglider') {
+        // Bogenflügel oben, Leinen, Person darunter
+        return open
+          + '<path d="M -10,2 Q 0 -8 10 2" fill="none" stroke="' + col + '" stroke-width="2.6" stroke-linecap="round"/>'
+          + '<line x1="-7" y1="2" x2="0" y2="8" stroke="' + col + '" stroke-width="0.6" opacity="0.6"/>'
+          + '<line x1="7" y1="2" x2="0" y2="8" stroke="' + col + '" stroke-width="0.6" opacity="0.6"/>'
+          + '<circle cx="0" cy="9" r="1.6" fill="' + col + '"' + stroke + '/>'
+          + close;
+      }
+      if (kind === 'drone') {
+        // Quadrocopter: X-Arme mit Rotor-Ringen an den Enden, Korpus in der Mitte
+        return open
+          + '<line x1="-6.5" y1="-6.5" x2="6.5" y2="6.5" stroke="' + col + '" stroke-width="1.4"/>'
+          + '<line x1="-6.5" y1="6.5" x2="6.5" y2="-6.5" stroke="' + col + '" stroke-width="1.4"/>'
+          + '<circle cx="-7" cy="-7" r="3" fill="none" stroke="' + col + '" stroke-width="1.2"/>'
+          + '<circle cx="7" cy="-7" r="3" fill="none" stroke="' + col + '" stroke-width="1.2"/>'
+          + '<circle cx="-7" cy="7" r="3" fill="none" stroke="' + col + '" stroke-width="1.2"/>'
+          + '<circle cx="7" cy="7" r="3" fill="none" stroke="' + col + '" stroke-width="1.2"/>'
+          + '<rect x="-2.6" y="-2.6" width="5.2" height="5.2" rx="0.8" fill="' + col + '"' + stroke + '/>'
+          + close;
+      }
+      // Default: Flächenflugzeug
+      return open
+        + '<polygon points="0,-10 2,-6 2,-1 9,3 9,4.5 2,2 1.5,7 4.5,9 4.5,10.5 0,8.5 -4.5,10.5 -4.5,9 -1.5,7 -2,2 -9,4.5 -9,3 -2,-1 -2,-6" fill="' + col + '"' + stroke + ' stroke-linejoin="round"/>'
+        + close;
     }
 
     /* [J-DIST] Haversine-Distanz in km */
@@ -1355,19 +1432,22 @@
         const sz = isLow ? 28 : 22;
         const rot = a.track || 0;
         const cat = (a.category || '').toUpperCase();
-        const isHelo = /^A7|^B/.test(cat);
+        const kind = _kindFromCat(cat);
         const icon = L.divIcon({
-          html: _acSvg(rot, clr, isHelo, sz),
+          html: _acSvg(rot, clr, kind, sz),
           className: '', iconSize: [sz, sz], iconAnchor: [sz/2, sz/2]
         });
         const m = L.marker([a.lat, a.lon], { icon }).addTo(AV.acLayer);
         const cs = a.flight ? a.flight.trim() : (a.hex || '?');
         const altM = Math.round(alt * 0.3048);
         const spdMs = (a.gs != null) ? (a.gs * 0.5144).toFixed(1) : '?';
-        const info = '<b>' + cs + '</b><br>' + dist.toFixed(1) + ' km · ' + altM + ' m (' + (a.alt_baro || '?') + ' ft) · ' + spdMs + ' m/s';
+        const kindLbl = (kind !== 'plane') ? _t('ac_' + kind) : '';
+        const info = '<b>' + cs + '</b>' + (kindLbl ? ' · <span class="ac-kind">' + kindLbl + '</span>' : '')
+                   + '<br>' + dist.toFixed(1) + ' km · ' + altM + ' m (' + (a.alt_baro || '?') + ' ft) · ' + spdMs + ' m/s';
         m.bindPopup(info);
         // Permanente Tooltips: Tiefflieger immer; alle übrigen nur bei aktiviertem Labels-Toggle
         const ttHtml = '<span class="av-cs">' + cs + '</span> · '
+                     + (kindLbl ? '<span class="av-u">' + kindLbl + '</span> · ' : '')
                      + altM + '<span class="av-u">m</span> · '
                      + spdMs + '<span class="av-u"> m/s</span>';
         if (isLow) {
