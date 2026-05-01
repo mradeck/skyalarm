@@ -41,7 +41,7 @@ Bewusst **nicht enthalten** (im Gegensatz zu SkyCheck):
 **Datei:** `skyalarm.html` (Single-File HTML/JS/CSS, ~1170 Zeilen)
 **Live:** https://skyalarm.netlify.app/
 **Repo:** https://github.com/mradeck/skyalarm (Default-Branch: `main`)
-**Aktuell:** v0.18 — Splash-Titel „SkyAlarm": Wortteil „Alarm" rot eingefärbt
+**Aktuell:** v0.19 — Aircraft-Label-Toggle, Speed in m/s, hellere Marker- und Trail-Farbpalette
 
 ---
 
@@ -160,6 +160,7 @@ Für Recherche, Visualisierung, Computer-Use; Code-Änderungen vorzugsweise via 
 | v0.16 | Eigenständiger Nebelalarm (`#ms-fog`): Trigger bei Sicht < 1 km, dichtem Dunst < 4 km mit Spread < 1 °C oder klassischen Nebelbildungs-Bedingungen (Spread < 0,5 °C, Wind < 2 m/s) |
 | v0.17 | App-Icon-Anpassung: `<linearGradient id="check">` in `skyalarm-icon.svg` von Grün (`#4ade80` → `#22c55e`) auf Rot (`#f87171` → `#ef4444`) umgestellt; PNG-Assets `icon-192x192.png` und `icon-512x512.png` neu gerendert. Zweck: visuelle Abgrenzung des Home-Screen-Icons gegenüber SkyCheck |
 | v0.18 | Splash-Titel: Wortteil „Alarm" in `<h1>` per `<span class="alarm-red">` rot (`#ef4444`) gegen den Default-Akzentton abgesetzt; CSS-Regel `#splash h1 .alarm-red` ergänzt. Zweck: visuelle Konsistenz zwischen App-Icon und Titelschriftzug |
+| v0.19 | (a) Toggle-Button `#av-labels` (Symbol „✈") in der Steuerleiste ergänzt; aktivierter Zustand setzt `AV.allLabels = true` und blendet permanente Tooltips (Callsign, Höhe, Geschwindigkeit) für **alle** Marker ein, neue CSS-Klasse `.av-tt-norm` mit Light/Dark-Adaption. (b) Geschwindigkeitsangabe in Popup und Tiefflieger-Detailliste von `kts` bzw. `km/h` auf `m/s` umgestellt (`a.gs × 0.5144`, eine Nachkommastelle). (c) Marker- und Trail-Farbpalette aufgehellt: Alarm `#ff3838`, Tiefflieger weit `#ffb300`, Reisehöhe nah `#22d3ee` (Cyan), Reisehöhe fern `#a78bfa` (Lavendel); Trail-Mindestopazität 0.10 → 0.30, Linienstärke 1.5/2.5 → 2.2/3.0. Stale-Trails ehemaliger Marker nun ebenfalls in Lavendel statt Olivgrün |
 
 ---
 

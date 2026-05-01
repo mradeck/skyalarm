@@ -201,6 +201,23 @@
       box-shadow: none !important;
     }
     .av-tt-low::before { display: none !important; }
+    /* Tooltip an regulären Fluggeräten (Toggle „av-labels") */
+    .av-tt-norm {
+      background: rgba(20,30,45,0.85) !important;
+      color: #e6f7ff !important;
+      border: 1px solid rgba(34,211,238,0.55) !important;
+      font-size: 0.68rem;
+      font-weight: 600;
+      padding: 1px 4px !important;
+      border-radius: 3px !important;
+      box-shadow: none !important;
+    }
+    .av-tt-norm::before { display: none !important; }
+    #app-view.av-light .av-tt-norm {
+      background: rgba(255,255,255,0.92) !important;
+      color: #033 !important;
+      border-color: rgba(0,150,180,0.6) !important;
+    }
 
     /* Aircraft popup */
     .ac-popup b { color: var(--accent); }
@@ -632,6 +649,7 @@
     <div class="av-ctrl">
       <button class="av-btn" id="av-gps" data-i18n-title="ctrlGps" title="GPS">⊕</button>
       <button class="av-btn on" id="av-zones" data-i18n-title="ctrlZones" title="Geozonen">⬡</button>
+      <button class="av-btn" id="av-labels" data-i18n-title="ctrlLabels" title="Fluggerät-Infos einblenden">✈</button>
       <button class="av-btn" id="av-style" data-i18n-title="ctrlStyle" title="Kartenstil">⧉</button>
       <button class="av-btn" id="av-theme" data-i18n-title="ctrlTheme" title="Hell/Dunkel">☀</button>
       <button class="av-btn" id="av-info" data-i18n-title="ctrlInfo" title="Info">ⓘ</button>
@@ -675,7 +693,7 @@
 
   <script>
     /* [J-VER] Versionsnummer — einzige Stelle */
-    const APP_VER = '0.18';
+    const APP_VER = '0.19';
     document.querySelectorAll('.l-ver').forEach(e => e.textContent = APP_VER);
 
     /* [J-I18N] Internationalisierung — DE/EN, alarm-spezifisch */
@@ -686,6 +704,7 @@
         statAlarm: n => '⚠ ' + n + ' Flugzeug' + (n > 1 ? 'e' : ''),
         ctrlGps: 'Aktuellen Standort verwenden',
         ctrlZones: 'Geozonen ein/aus',
+        ctrlLabels: 'Fluggerät-Infos dauerhaft einblenden',
         ctrlStyle: 'Kartenstil wechseln',
         ctrlTheme: 'Hell/Dunkel umschalten',
         ctrlInfo: 'Über SkyAlarm',
@@ -731,6 +750,7 @@
         statAlarm: n => '⚠ ' + n + ' aircraft',
         ctrlGps: 'Use current location',
         ctrlZones: 'Toggle airspace zones',
+        ctrlLabels: 'Show aircraft labels permanently',
         ctrlStyle: 'Cycle map style',
         ctrlTheme: 'Toggle light/dark',
         ctrlInfo: 'About SkyAlarm',
@@ -813,7 +833,7 @@
       interval: null, beepInterval: null, weatherInterval: null,
       lat: null, lon: null,
       lastZones: [], lastWeather: null,
-      zonesOn: true, lightMode: false, alarmOn: false, styleIdx: 0,
+      zonesOn: true, lightMode: false, alarmOn: false, allLabels: false, styleIdx: 0,
       RADIUS_KM: 2, POLL_MS: 2000, ALT_LIMIT_FT: 984, SCAN_KM: 18.52, TRAIL_SEC: 60,
       WEATHER_POLL_MS: 600000, /* alle 10 min Wetter aktualisieren */
       STYLES: [
@@ -1231,7 +1251,11 @@
         const dist = avDist(AV.lat, AV.lon, a.lat, a.lon);
         const alt = altFt(a);
         const isLow = alt < AV.ALT_LIMIT_FT;
-        const clr = (isLow && dist < AV.RADIUS_KM) ? '#ff4444' : isLow ? '#ffaa00' : dist < 5 ? '#88bb88' : '#557755';
+        // Farbpalette mit hoher Sättigung — auch im Dark-Mode klar lesbar
+        const clr = (isLow && dist < AV.RADIUS_KM) ? '#ff3838'
+                  : isLow                            ? '#ffb300'
+                  : dist < 5                         ? '#22d3ee'
+                                                     : '#a78bfa';
         const sz = isLow ? 28 : 22;
         const rot = a.track || 0;
         const cat = (a.category || '').toUpperCase();
@@ -1243,9 +1267,17 @@
         const m = L.marker([a.lat, a.lon], { icon }).addTo(AV.acLayer);
         const cs = a.flight ? a.flight.trim() : (a.hex || '?');
         const altM = Math.round(alt * 0.3048);
-        const info = '<b>' + cs + '</b><br>' + dist.toFixed(1) + ' km · ' + altM + ' m (' + (a.alt_baro || '?') + ' ft) · ' + (a.gs || '?') + ' kts';
+        const spdMs = (a.gs != null) ? (a.gs * 0.5144).toFixed(1) : '?';
+        const info = '<b>' + cs + '</b><br>' + dist.toFixed(1) + ' km · ' + altM + ' m (' + (a.alt_baro || '?') + ' ft) · ' + spdMs + ' m/s';
         m.bindPopup(info);
-        if (isLow) m.bindTooltip(cs + ' ' + altM + 'm', { permanent: true, direction: 'right', className: 'av-tt-low', offset: [12, 0] });
+        // Permanente Tooltips: Tiefflieger immer; alle übrigen nur bei aktiviertem Labels-Toggle
+        if (isLow) {
+          m.bindTooltip(cs + ' ' + altM + 'm · ' + spdMs + ' m/s',
+            { permanent: true, direction: 'right', className: 'av-tt-low', offset: [12, 0] });
+        } else if (AV.allLabels) {
+          m.bindTooltip(cs + ' ' + altM + 'm · ' + spdMs + ' m/s',
+            { permanent: true, direction: 'right', className: 'av-tt-norm', offset: [12, 0] });
+        }
         if (!AV.trails[hex]) AV.trails[hex] = [];
         AV.trails[hex].push({ lat: a.lat, lon: a.lon, ts: now });
         AV.trails[hex] = AV.trails[hex].filter(p => p.ts > cutoff);
@@ -1253,9 +1285,9 @@
         if (pts.length >= 2) {
           for (let i = 1; i < pts.length; i++) {
             const age = (now - pts[i].ts) / (AV.TRAIL_SEC * 1000);
-            const op = Math.max(0.1, 1 - age);
+            const op = Math.max(0.3, 1 - age);
             L.polyline([[pts[i-1].lat, pts[i-1].lon], [pts[i].lat, pts[i].lon]], {
-              color: clr, weight: isLow ? 2.5 : 1.5, opacity: op, lineCap: 'round'
+              color: clr, weight: isLow ? 3 : 2.2, opacity: op, lineCap: 'round'
             }).addTo(AV.trailLayer);
           }
         }
@@ -1267,9 +1299,9 @@
           if (pts.length >= 2) {
             for (let i = 1; i < pts.length; i++) {
               const age = (now - pts[i].ts) / (AV.TRAIL_SEC * 1000);
-              const op = Math.max(0.1, 1 - age);
+              const op = Math.max(0.25, 1 - age);
               L.polyline([[pts[i-1].lat, pts[i-1].lon], [pts[i].lat, pts[i].lon]], {
-                color: '#557755', weight: 1.5, opacity: op, lineCap: 'round'
+                color: '#a78bfa', weight: 2, opacity: op, lineCap: 'round'
               }).addTo(AV.trailLayer);
             }
           }
@@ -1319,8 +1351,8 @@
         const alt = (a.alt_baro == null || a.alt_baro === 'ground') ? 0 : +a.alt_baro;
         const altM = Math.round(alt * 0.3048);
         const dist = avDist(AV.lat, AV.lon, a.lat, a.lon);
-        const spd = a.gs ? Math.round(a.gs * 1.852) : '?';
-        return '<div class="av-lowalt-row"><span>✈ ' + cs + '</span><span>' + altM + ' m</span><span>' + dist.toFixed(1) + ' km</span><span>' + spd + ' km/h</span></div>';
+        const spd = (a.gs != null) ? (a.gs * 0.5144).toFixed(1) : '?';
+        return '<div class="av-lowalt-row"><span>✈ ' + cs + '</span><span>' + altM + ' m</span><span>' + dist.toFixed(1) + ' km</span><span>' + spd + ' m/s</span></div>';
       }).join('');
       el.innerHTML = '<div class="av-lowalt-hdr">' + _t('lowAltHdr') + '</div>' + rows;
     }
@@ -1418,6 +1450,13 @@
         AV.zonesOn = !AV.zonesOn;
         AV.zonesOn ? AV.map.addLayer(AV.dipulL) : AV.map.removeLayer(AV.dipulL);
         $('av-zones').classList.toggle('on', AV.zonesOn);
+      });
+
+      $('av-labels').addEventListener('click', () => {
+        AV.allLabels = !AV.allLabels;
+        $('av-labels').classList.toggle('on', AV.allLabels);
+        // Labels sofort sichtbar machen, statt auf den nächsten Poll zu warten
+        avPoll();
       });
 
       $('av-style').addEventListener('click', () => {
