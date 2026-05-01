@@ -41,7 +41,7 @@ Bewusst **nicht enthalten** (im Gegensatz zu SkyCheck):
 **Datei:** `skyalarm.html` (Single-File HTML/JS/CSS, ~1170 Zeilen)
 **Live:** https://skyalarm.netlify.app/
 **Repo:** https://github.com/mradeck/skyalarm (Default-Branch: `main`)
-**Aktuell:** v0.20 — Splash-Source-Links, Detektionsradius-Toggle (2/4/6 km), Reaktionszeit-Overlay
+**Aktuell:** v0.21 — Reaktionszeit-Overlay: reine Sekunden-Anzeige, Umbruchschutz, 7 s sichtbar
 
 ---
 
@@ -162,6 +162,7 @@ Für Recherche, Visualisierung, Computer-Use; Code-Änderungen vorzugsweise via 
 | v0.18 | Splash-Titel: Wortteil „Alarm" in `<h1>` per `<span class="alarm-red">` rot (`#ef4444`) gegen den Default-Akzentton abgesetzt; CSS-Regel `#splash h1 .alarm-red` ergänzt. Zweck: visuelle Konsistenz zwischen App-Icon und Titelschriftzug |
 | v0.19 | (a) Toggle-Button `#av-labels` (Symbol „✈") in der Steuerleiste ergänzt; aktivierter Zustand setzt `AV.allLabels = true` und blendet permanente Tooltips (Callsign, Höhe, Geschwindigkeit) für **alle** Marker ein, neue CSS-Klasse `.av-tt-norm` mit Light/Dark-Adaption. (b) Geschwindigkeitsangabe in Popup und Tiefflieger-Detailliste von `kts` bzw. `km/h` auf `m/s` umgestellt (`a.gs × 0.5144`, eine Nachkommastelle). (c) Marker- und Trail-Farbpalette aufgehellt: Alarm `#ff3838`, Tiefflieger weit `#ffb300`, Reisehöhe nah `#22d3ee` (Cyan), Reisehöhe fern `#a78bfa` (Lavendel); Trail-Mindestopazität 0.10 → 0.30, Linienstärke 1.5/2.5 → 2.2/3.0. Stale-Trails ehemaliger Marker nun ebenfalls in Lavendel statt Olivgrün |
 | v0.20 | (a) Splash-Seite um Source-Link-Leiste (`.modal-srcs.splash-srcs`) und kompakten Footer mit Versionsstring + SkyCheck-Link erweitert; CSS-Hooks `#splash .splash-srcs` und `#splash .splash-foot` ergänzt. (b) Neuer Toggle-Button `#av-radius` (Symbol „◎") cycled durch `RADIUS_OPTS = [2, 4, 6]` km; aktive Stufen ≠ Default markieren den Button per `.on`. Funktion `setDetectionRadius(idx)` aktualisiert `AV.RADIUS_KM`, ruft `radiusCirc.setRadius()` auf und triggert sofort `avPoll()`, damit `avCheckProx` den neuen Radius sofort wirksam macht. (c) Reaktionszeit-Overlay `#av-radius-info`: zentral platziert, blendet beim Toggle für 5 s ein und zeigt aktuellen Radius zusammen mit Reaktionszeiten bei 30 m/s (≈108 km/h) und 60 m/s (≈216 km/h); Light-Mode-Variante via `#app-view.av-light .av-radius-info`. Neue i18n-Keys `ctrlRadius`, `riHdr`, `riReact`, `riAt` |
+| v0.21 | Reaktionszeit-Overlay (`#av-radius-info`) lesbarer und umbruchsicher: (a) Zeitformat von gemischtem „X min YY s" auf reine Sekunden umgestellt, da das Mischformat auf schmalen Layouts in zwei Zeilen brach. (b) Zahl-Einheit-Paare („X km", „30 m/s", „108 km/h" usw.) mit Non-breaking Space (U+00A0) gebunden; zusätzlich CSS-Schutz: `white-space: nowrap` auf `.ri-hdr` und `.ri-row span:last-child`, erste Zeilen-Span erhält `flex:1 1 auto; min-width:0`. (c) Container nutzt nun `width: max-content; max-width: min(92vw, 24rem)` statt fester 18 rem — passt sich Inhalt und Viewport adaptiv an. (d) Anzeigedauer 5 s → 7 s |
 
 ---
 

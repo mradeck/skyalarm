@@ -240,7 +240,8 @@
       pointer-events: none;
       opacity: 0;
       transition: opacity 0.18s ease, transform 0.18s ease;
-      max-width: 18rem;
+      max-width: min(92vw, 24rem);
+      width: max-content;
       text-align: left;
     }
     .av-radius-info.show {
@@ -259,7 +260,10 @@
       gap: 0.8rem;
       font-variant-numeric: tabular-nums;
     }
-    .av-radius-info .ri-row span:first-child { opacity: 0.78; }
+    /* Zahlen-Werte, Header und Geschwindigkeitsangaben dürfen nie umbrechen */
+    .av-radius-info .ri-hdr,
+    .av-radius-info .ri-row span:last-child { white-space: nowrap; }
+    .av-radius-info .ri-row span:first-child { opacity: 0.78; flex: 1 1 auto; min-width: 0; }
     #app-view.av-light .av-radius-info {
       background: rgba(255,255,255,0.96);
       color: #222;
@@ -769,7 +773,7 @@
 
   <script>
     /* [J-VER] Versionsnummer — einzige Stelle */
-    const APP_VER = '0.20';
+    const APP_VER = '0.21';
     document.querySelectorAll('.l-ver').forEach(e => e.textContent = APP_VER);
 
     /* [J-I18N] Internationalisierung — DE/EN, alarm-spezifisch */
@@ -1458,25 +1462,18 @@
       if (!el) return;
       const km = AV.RADIUS_KM;
       const m = km * 1000;
-      // Reaktionszeiten für zwei typische Tiefflieger-Geschwindigkeiten
-      const fmt = (v) => {
-        const t = m / v;
-        if (t >= 60) {
-          const min = Math.floor(t / 60);
-          const sec = Math.round(t - min * 60);
-          return `${min} min ${sec.toString().padStart(2, '0')} s`;
-        }
-        return `${Math.round(t)} s`;
-      };
+      // Reine Sekunden-Anzeige; Zahl und Einheit per Non-breaking Space ( )
+      // an einer Stelle gebunden, damit kein Zeilenumbruch sie trennt.
+      const fmt = (v) => Math.round(m / v) + ' s';
       const t30 = fmt(30);   // 30 m/s ≈ 108 km/h (langsamer Tiefflieger)
       const t60 = fmt(60);   // 60 m/s ≈ 216 km/h (typischer Tiefflieger)
       el.innerHTML =
-        '<div class="ri-hdr">⊙ ' + _t('riHdr') + ': ' + km + ' km</div>'
-        + '<div class="ri-row"><span>' + _t('riReact') + ' ' + _t('riAt') + ' 30 m/s (≈108 km/h)</span><span>' + t30 + '</span></div>'
-        + '<div class="ri-row"><span>' + _t('riReact') + ' ' + _t('riAt') + ' 60 m/s (≈216 km/h)</span><span>' + t60 + '</span></div>';
+        '<div class="ri-hdr">⊙ ' + _t('riHdr') + ': ' + km + ' km</div>'
+        + '<div class="ri-row"><span>' + _t('riReact') + ' ' + _t('riAt') + ' 30 m/s (≈108 km/h)</span><span>' + t30 + '</span></div>'
+        + '<div class="ri-row"><span>' + _t('riReact') + ' ' + _t('riAt') + ' 60 m/s (≈216 km/h)</span><span>' + t60 + '</span></div>';
       el.classList.add('show');
       if (AV.radiusInfoTimer) clearTimeout(AV.radiusInfoTimer);
-      AV.radiusInfoTimer = setTimeout(() => el.classList.remove('show'), 5000);
+      AV.radiusInfoTimer = setTimeout(() => el.classList.remove('show'), 7000);
     }
 
     /* [J-AUDIO] Web-Audio-Beep */
