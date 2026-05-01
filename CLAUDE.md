@@ -41,7 +41,7 @@ Bewusst **nicht enthalten** (im Gegensatz zu SkyCheck):
 **Datei:** `skyalarm.html` (Single-File HTML/JS/CSS, ~1170 Zeilen)
 **Live:** https://skyalarm.netlify.app/
 **Repo:** https://github.com/mradeck/skyalarm (Default-Branch: `main`)
-**Aktuell:** v0.16 — Eigenständiger Nebelalarm im Kompakt-Overlay
+**Aktuell:** v0.17 — App-Icon: Haken & Schild-Outline auf Rot (Abgrenzung von SkyCheck)
 
 ---
 
@@ -158,6 +158,7 @@ Für Recherche, Visualisierung, Computer-Use; Code-Änderungen vorzugsweise via 
 | v0.14 | Vereisungs- und Nebelgefahr für 50 m AGL im Kompakt-Overlay (Magnus-Tetens-Taupunkt + Standard-Lapse-Rate für T/Td) |
 | v0.15 | Fix: `dew_point` in `fetchWeather` von Kelvin auf °C konvertiert (zuvor falsche Magnitudendarstellung) |
 | v0.16 | Eigenständiger Nebelalarm (`#ms-fog`): Trigger bei Sicht < 1 km, dichtem Dunst < 4 km mit Spread < 1 °C oder klassischen Nebelbildungs-Bedingungen (Spread < 0,5 °C, Wind < 2 m/s) |
+| v0.17 | App-Icon-Anpassung: `<linearGradient id="check">` in `skyalarm-icon.svg` von Grün (`#4ade80` → `#22c55e`) auf Rot (`#f87171` → `#ef4444`) umgestellt; PNG-Assets `icon-192x192.png` und `icon-512x512.png` neu gerendert. Zweck: visuelle Abgrenzung des Home-Screen-Icons gegenüber SkyCheck |
 
 ---
 
