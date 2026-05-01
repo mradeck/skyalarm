@@ -218,6 +218,13 @@
       color: #033 !important;
       border-color: rgba(0,150,180,0.6) !important;
     }
+    /* Sekundär-Spans im Tooltip: Kennung und Einheiten gedimmt, damit Zahlen hervortreten */
+    .av-tt-low .av-cs,
+    .av-tt-low .av-u { color: rgba(0,0,0,0.55) !important; font-weight: 600; }
+    .av-tt-norm .av-cs,
+    .av-tt-norm .av-u { color: rgba(230,247,255,0.55) !important; font-weight: 500; }
+    #app-view.av-light .av-tt-norm .av-cs,
+    #app-view.av-light .av-tt-norm .av-u { color: rgba(3,51,51,0.55) !important; }
 
     /* Aircraft popup */
     .ac-popup b { color: var(--accent); }
@@ -773,7 +780,7 @@
 
   <script>
     /* [J-VER] Versionsnummer — einzige Stelle */
-    const APP_VER = '0.21';
+    const APP_VER = '0.22';
     document.querySelectorAll('.l-ver').forEach(e => e.textContent = APP_VER);
 
     /* [J-I18N] Internationalisierung — DE/EN, alarm-spezifisch */
@@ -1360,11 +1367,14 @@
         const info = '<b>' + cs + '</b><br>' + dist.toFixed(1) + ' km · ' + altM + ' m (' + (a.alt_baro || '?') + ' ft) · ' + spdMs + ' m/s';
         m.bindPopup(info);
         // Permanente Tooltips: Tiefflieger immer; alle übrigen nur bei aktiviertem Labels-Toggle
+        const ttHtml = '<span class="av-cs">' + cs + '</span> · '
+                     + altM + '<span class="av-u">m</span> · '
+                     + spdMs + '<span class="av-u"> m/s</span>';
         if (isLow) {
-          m.bindTooltip(cs + ' ' + altM + 'm · ' + spdMs + ' m/s',
+          m.bindTooltip(ttHtml,
             { permanent: true, direction: 'right', className: 'av-tt-low', offset: [12, 0] });
         } else if (AV.allLabels) {
-          m.bindTooltip(cs + ' ' + altM + 'm · ' + spdMs + ' m/s',
+          m.bindTooltip(ttHtml,
             { permanent: true, direction: 'right', className: 'av-tt-norm', offset: [12, 0] });
         }
         if (!AV.trails[hex]) AV.trails[hex] = [];
