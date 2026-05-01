@@ -796,7 +796,7 @@
 
   <script>
     /* [J-VER] Versionsnummer — einzige Stelle */
-    const APP_VER = '0.26';
+    const APP_VER = '0.27';
     document.querySelectorAll('.l-ver').forEach(e => e.textContent = APP_VER);
 
     /* [J-I18N] Internationalisierung — DE/EN, alarm-spezifisch */
@@ -1449,8 +1449,14 @@
     }
 
     function avUpdateMarkers(planes) {
+      // Während clearLayers() feuert Leaflet ein synchrones `popupclose`-Event auf dem
+      // gerade zerstörten Marker; ohne Flag würde der Handler `AV.openPopupHex` zurücksetzen
+      // und die Persistenzlogik unterlaufen, weil der neu erzeugte Marker dann keinen
+      // gespeicherten Hex mehr findet, an dem er das Popup wieder öffnen könnte.
+      AV._cleaningUp = true;
       AV.acLayer.clearLayers();
       AV.trailLayer.clearLayers();
+      AV._cleaningUp = false;
       const now = Date.now();
       const cutoff = now - AV.TRAIL_SEC * 1000;
       const altFt = a => (a.alt_baro == null || a.alt_baro === 'ground') ? 0 : +a.alt_baro;
@@ -1493,8 +1499,13 @@
         m.bindPopup(info);
         // Popup-Persistenz über Poll-Zyklen hinweg: bei jedem Poll werden Marker neu aufgebaut,
         // ohne diese Logik schließt sich das Popup nach POLL_MS (2 s). Hex merken und neu öffnen.
+        // Während `AV._cleaningUp` (siehe oben) ignoriert popupclose das Reset, sonst würde der
+        // synchrone Cleanup-Close den gemerkten Hex zerstören, bevor das Reopen ansetzt.
         m.on('popupopen',  () => { AV.openPopupHex = hex; });
-        m.on('popupclose', () => { if (AV.openPopupHex === hex) AV.openPopupHex = null; });
+        m.on('popupclose', () => {
+          if (AV._cleaningUp) return;
+          if (AV.openPopupHex === hex) AV.openPopupHex = null;
+        });
         if (AV.openPopupHex === hex) m.openPopup();
         // Permanente Tooltips: Tiefflieger immer; alle übrigen nur bei aktiviertem Labels-Toggle
         const ttHtml = '<span class="av-cs">' + cs + '</span> · '
