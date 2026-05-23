@@ -19,7 +19,7 @@
 
 ## Projektübersicht
 
-**SkyAlarm** ist eine eigenständige Single-File-Webanwendung für Echtzeit-Tiefflieger-Alarme im Drohnenflug. Sie wurde aus der Alarm-View des Schwesterprojekts **SkyCheck** (https://enchanting-stardust-f713da.netlify.app/skycheck.html) abgespalten und konzentriert sich auf:
+**SkyAlarm** ist eine eigenständige Single-File-Webanwendung für Echtzeit-Tiefflieger-Alarme im Drohnenflug. Sie wurde aus der Alarm-View des Schwesterprojekts **SkyCheck** (https://skycheck-de.netlify.app/) abgespalten und konzentriert sich auf:
 
 - **Tiefflieger-Erkennung** via ADS-B (airplanes.live), Schwellwert 300 m AGL, 2 km Radius
 - **Akustischer und vibrierender Alarm** bei Annäherung
@@ -41,7 +41,7 @@ Bewusst **nicht enthalten** (im Gegensatz zu SkyCheck):
 **Datei:** `skyalarm.html` (Single-File HTML/JS/CSS, ~1800 Zeilen) plus Netlify-Function `netlify/functions/ogn.js` (OGN-Proxy, ~170 Zeilen)
 **Live:** https://skyalarm.netlify.app/
 **Repo:** https://github.com/mradeck/skyalarm (Default-Branch: `main`)
-**Aktuell:** v0.28 — Attribution-Vervollständigung: OGN, BrightSky/DWD und Esri auf Splash-Screen und Info-Modal ergänzt; Quellen-Liste folgt damit den OGN-Datennutzungsregeln
+**Aktuell:** v0.29 — SkyCheck-Link auf neue Adresse `https://skycheck-de.netlify.app/` (deutsche Version) umgestellt in `skyalarm.html` (Splash-Footer und Info-Modal-Footer), `README.md` und `CLAUDE.md`; vorherige Netlify-Subdomain `enchanting-stardust-f713da.netlify.app` vollständig entfernt
 
 ---
 
@@ -172,6 +172,7 @@ Für Recherche, Visualisierung, Computer-Use; Code-Änderungen vorzugsweise via 
 | v0.26 | OGN-Klassifizierung verfeinert und visuelle Quellen-Differenzierung: (a) `OGN_TO_CAT[0]` (Typ „unknown") aus dem Mapping entfernt, stattdessen Speed-basierte Heuristik `classifyUnknownByGs(speedKt)` — Schwellen orientiert an typischen Flugbereichen: < 50 kt (≈ 92 km/h) → B4 Gleitschirm/Drachen, 50–86 kt (≈ 92–160 km/h) → B1 Segelflieger, darüber → A1 motorisiert. Hintergrund: nicht klassifizierte FLARM-Geräte sind ohne Speed-Kontext nicht eindeutig zuordenbar; die Default-Anzeige als Flächenflugzeug wirkte irreführend, eine pauschale B4-Zuordnung produziert dagegen Falschanzeigen bei motorisiertem Verkehr (Smoke-Test im Alpenraum: 128-kt-Target wurde fälschlich als Gleitschirm dargestellt). (b) `OGN_STATIC = {13, 14}` filtert Bodenstationen vor der Rückgabe. (c) Client-seitig in `avUpdateMarkers` neue Verzweigung `isOgn = a.source === 'ogn'`: nicht-Alarm-OGN-Marker erhalten den gedeckten Cyan-Ton `#0891b2` (Tailwind cyan-700), Alarm-Rot `#ff3838` bleibt quellunabhängig identisch — ein OGN-Tiefflieger im 2-km-Radius muss visuell genauso warnen wie ein ADS-B-Tiefflieger |
 | v0.27 | Bugfix Popup-Persistenz (Folgefix zu v0.24): die in v0.24 angelegte Logik wurde durch ihren eigenen Cleanup-Pfad unterlaufen. `AV.acLayer.clearLayers()` triggert synchron `popupclose` auf dem zerstörten Marker; der Handler setzte daraufhin `AV.openPopupHex = null`, sodass der neu erzeugte Marker an seinem if-Check keinen gespeicherten Hex mehr fand. Lösung: neuer Cleanup-Flag `AV._cleaningUp` wird vor `clearLayers()` gesetzt und unmittelbar danach zurückgenommen; der `popupclose`-Handler verwirft währenddessen sein Reset. Nutzergetriebene Schließungen (Klick auf X, Klick außerhalb des Popups) bleiben davon unberührt, weil sie außerhalb des Cleanup-Fensters auftreten |
 | v0.28 | Attribution-Vervollständigung: Quellen-Listen auf Splash-Screen (`#splash .splash-srcs`) und im Info-Modal (`.modal-srcs`) um drei seit längerem genutzte, aber nicht ausgewiesene Datenquellen erweitert — OGN (https://www.glidernet.org/, seit v0.25 Pflichtangabe gemäß OGN-Datennutzungsregeln), BrightSky/DWD (https://brightsky.dev/, seit v0.12 für Wetter, DWD-Datenkontext attribuierungspflichtig) und Esri (https://www.esri.com/, World-Imagery-Tile seit Beginn). Reihenfolge nun fachlich-thematisch: Verkehrsdaten (airplanes.live, OGN), Geodaten (DiPUL), Wetter (BrightSky), Karten-Engine und Tiles (Leaflet, OSM, CARTO, Esri), persönliche Links zuletzt. README.md (Datenquellen-Sektion) ist bereits in v0.27 mit denselben Einträgen synchronisiert worden |
+| v0.29 | SkyCheck-Link aktualisiert: bisherige Netlify-Generic-Subdomain `https://enchanting-stardust-f713da.netlify.app/skycheck.html` durch die neue produktive deutsche Domain `https://skycheck-de.netlify.app/` ersetzt. Betroffen: `skyalarm.html` (Splash-Footer `.splash-foot` Zeile 777 und Info-Modal-Footer Zeile 799), `README.md` (Einleitung Zeile 8 und „Verwandte Projekte"-Sektion Zeile 100), `CLAUDE.md` (Projektübersicht Zeile 22). Hintergrund: SkyCheck wurde von der Netlify-Auto-Subdomain auf eine sprechende, lokalisierte Domain migriert (deutschsprachige Variante mit `-de`-Suffix), der Altlink leitete zwar weiter, sollte aber aus dem produktiven Quellbestand verschwinden, um Linkrot vorzubeugen |
 
 ---
 

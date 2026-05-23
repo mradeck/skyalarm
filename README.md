@@ -5,7 +5,7 @@ Echtzeit-Tiefflieger-Alarm und Geozonen-Karte für Drohnenpiloten — Single-Fil
 **Live:** https://skyalarm.netlify.app/
 **Repo:** https://github.com/mradeck/skyalarm
 
-Abgespalten aus dem Schwesterprojekt [SkyCheck](https://enchanting-stardust-f713da.netlify.app/skycheck.html). SkyAlarm fokussiert sich auf operativ entscheidungsrelevante Echtzeit-Alarme im Drohnenflug. METAR/TAF, KP-Index, mehrtägige Vorhersagen und Adress-/Ortssuche bleiben SkyCheck vorbehalten; flugkritische Wetterindikatoren (Wind, Böen, Vereisung, Nebel, Niederschlag) sind hingegen direkt integriert.
+Abgespalten aus dem Schwesterprojekt [SkyCheck](https://skycheck-de.netlify.app/). SkyAlarm fokussiert sich auf operativ entscheidungsrelevante Echtzeit-Alarme im Drohnenflug. METAR/TAF, KP-Index, mehrtägige Vorhersagen und Adress-/Ortssuche bleiben SkyCheck vorbehalten; flugkritische Wetterindikatoren (Wind, Böen, Vereisung, Nebel, Niederschlag) sind hingegen direkt integriert.
 
 ## Funktionen
 
@@ -97,4 +97,4 @@ Hilfswerkzeug ohne Gewähr. Verantwortung für sicheren Drohnenbetrieb verbleibt
 
 ## Verwandt
 
-[SkyCheck](https://enchanting-stardust-f713da.netlify.app/skycheck.html) — vollständige Drohnen-Flugplanung mit Wetter, Vorhersagen und METAR/TAF.
+[SkyCheck](https://skycheck-de.netlify.app/) — vollständige Drohnen-Flugplanung mit Wetter, Vorhersagen und METAR/TAF.
