@@ -802,7 +802,7 @@
 
   <script>
     /* [J-VER] Versionsnummer — einzige Stelle */
-    const APP_VER = '0.29';
+    const APP_VER = '0.30';
     document.querySelectorAll('.l-ver').forEach(e => e.textContent = APP_VER);
 
     /* [J-I18N] Internationalisierung — DE/EN, alarm-spezifisch */
@@ -954,7 +954,13 @@
     const OGN_URL = '/.netlify/functions/ogn';   // Proxy für live.glidernet.org/lxml.php
     const BRIGHTSKY_URL = 'https://api.brightsky.dev/weather';
     const DIPUL_ALL_LAYERS = 'bahnanlagen,behoerden,binnenwasserstrassen,bundesautobahnen,bundesstrassen,diplomatische_vertretungen,ffh-gebiete,flugbeschraenkungsgebiete,flughaefen,flugplaetze,freibaeder,haengegleiter,inaktive_temporaere_betriebseinschraenkungen,industrieanlagen,internationale_organisationen,justizvollzugsanstalten,kontrollzonen,kraftwerke,krankenhaeuser,labore,militaerische_anlagen,modellflugplaetze,nationalparks,naturschutzgebiete,polizei,schifffahrtsanlagen,seewasserstrassen,sicherheitsbehoerden,stromleitungen,temporaere_betriebseinschraenkungen,umspannwerke,vogelschutzgebiete,windkraftanlagen,wohngrundstuecke';
-    function getActiveDipulLayers() { return DIPUL_ALL_LAYERS; }
+    // Zur Laufzeit als defekt erkannte DiPUL-Layer (GeoServer-ServiceException).
+    // Nur in-memory pro Session: ein von DiPUL reparierter Layer erscheint nach Reload
+    // automatisch wieder, da das Set beim Neuladen leer startet.
+    const dipulBadLayers = new Set();
+    function getActiveDipulLayers() {
+      return DIPUL_ALL_LAYERS.split(',').filter(l => !dipulBadLayers.has(l)).join(',');
+    }
 
     /* [J-STATE] Anwendungs-State */
     const AV = {
@@ -977,53 +983,98 @@
     };
 
     /* [J-FETCHZONES] DiPUL WMS GetFeatureInfo — δ-Formel empirisch kalibriert */
+    function buildGfiUrl(layers, bbox) {
+      return `${DIPUL_WMS_URL}?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetFeatureInfo`
+        + `&FORMAT=image/png&TRANSPARENT=true`
+        + `&QUERY_LAYERS=${layers}&LAYERS=${layers}`
+        + `&CRS=EPSG:4326&BBOX=${bbox}&WIDTH=101&HEIGHT=101&I=50&J=50`
+        + `&INFO_FORMAT=text/html&FEATURE_COUNT=50`;
+    }
+
+    // GeoServer signalisiert einen defekten Layer mit einer ServiceException, die
+    // (untypisch) mit HTTP 200 ausgeliefert wird. Erkennung daher über den Body.
+    function isServiceException(html) { return /ServiceException/i.test(html); }
+
+    function parseZoneHtml(html) {
+      const doc = new DOMParser().parseFromString(html, 'text/html');
+      const tables = doc.querySelectorAll('table.featureInfo');
+      const params = [];
+      tables.forEach(table => {
+        const headers = Array.from(table.querySelectorAll('th')).map(th => th.textContent.trim().toLowerCase());
+        const rows = table.querySelectorAll('tr');
+        for (let i = 1; i < rows.length; i++) {
+          const cells = rows[i].querySelectorAll('td');
+          if (cells.length !== headers.length) continue;
+          const f = {};
+          headers.forEach((h, idx) => f[h] = cells[idx].textContent.trim());
+          const rawName = f.name || f.bezeichnung || '';
+          const type = f.type_code || f.geozone_art || 'Spezifische Geozone';
+          const name = rawName || type;
+          const extRef = f.external_reference || f.identifikation || '';
+          let lower = f.lower_limit_altitude || f.untere_grenze || '0.0';
+          let lowerRef = f.lower_limit_alt_ref || 'AGL';
+          let lowerUnit = f.lower_limit_unit || 'm';
+          if (lower === '0.0' && lowerRef === 'AGL') lower = 'GND';
+          else lower = `${lower} ${lowerUnit} ${lowerRef}`.trim();
+          let upper = f.upper_limit_altitude || f.obere_grenze || '';
+          let upperRef = f.upper_limit_alt_ref || '';
+          let upperUnit = f.upper_limit_unit || '';
+          if (upper === '99999.0' || upper === 'UNL') upper = 'UNL';
+          else if (upper) upper = `${upper} ${upperUnit} ${upperRef}`.trim();
+          else upper = '—';
+          const legal = f.legal_ref || f.rechtliche_grundlage || '—';
+          params.push({
+            name: name + (rawName && extRef && extRef !== 'null' ? ` (${extRef})` : ''),
+            type, lower, upper, legal, color: zoneColor(type)
+          });
+        }
+      });
+      return params;
+    }
+
+    // WMS-Karten-Overlay auf die bereinigte Layerliste umstellen, damit GeoServer
+    // nach Aussortieren eines defekten Layers auch die Kacheln (GetMap) wieder rendert.
+    function refreshDipulOverlay() {
+      if (AV.dipulL) AV.dipulL.setParams({ layers: getActiveDipulLayers() });
+    }
+
+    // Recovery: GeoServer rendert alles-oder-nichts. Ein einziger defekter Layer
+    // lässt die kombinierte Abfrage scheitern. Daher jeden Layer einzeln abfragen,
+    // Treffer der intakten Layer zusammenführen und NUR bei echter ServiceException
+    // (nicht bei Netzwerk-/HTTP-Fehler) den Layer dauerhaft (pro Session) sperren.
+    async function fetchZonesPerLayer(layersCsv, bbox) {
+      const layers = layersCsv.split(',');
+      const results = await Promise.allSettled(layers.map(async layer => {
+        const r = await fetch(buildGfiUrl(layer, bbox));
+        if (!r.ok) { const e = new Error('http'); e.transient = true; throw e; }
+        const html = await r.text();
+        if (isServiceException(html)) { const e = new Error('svc'); e.serviceException = true; throw e; }
+        return parseZoneHtml(html);
+      }));
+      const params = [];
+      let changed = false;
+      results.forEach((res, i) => {
+        if (res.status === 'fulfilled') params.push(...res.value);
+        else if (res.reason && res.reason.serviceException && !dipulBadLayers.has(layers[i])) {
+          dipulBadLayers.add(layers[i]); changed = true;
+        }
+        // Netzwerk-/HTTP-Fehler (res.reason.transient): Layer bleibt aktiv, nur diesmal übersprungen.
+      });
+      if (changed) refreshDipulOverlay();
+      return params;
+    }
+
     async function fetchZones(lat, lon, radiusM = 100) {
       const δ = Math.max(0.001134, radiusM * 101 / (4 * 111320));
       const bbox = `${lat - δ},${lon - δ},${lat + δ},${lon + δ}`;
       const activeL = getActiveDipulLayers();
-      const url = `${DIPUL_WMS_URL}?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetFeatureInfo`
-        + `&FORMAT=image/png&TRANSPARENT=true`
-        + `&QUERY_LAYERS=${activeL}&LAYERS=${activeL}`
-        + `&CRS=EPSG:4326&BBOX=${bbox}&WIDTH=101&HEIGHT=101&I=50&J=50`
-        + `&INFO_FORMAT=text/html&FEATURE_COUNT=50`;
       try {
-        const r = await fetch(url);
+        const r = await fetch(buildGfiUrl(activeL, bbox));
         if (!r.ok) return [];
         const html = await r.text();
-        const doc = new DOMParser().parseFromString(html, 'text/html');
-        const tables = doc.querySelectorAll('table.featureInfo');
-        const params = [];
-        tables.forEach(table => {
-          const headers = Array.from(table.querySelectorAll('th')).map(th => th.textContent.trim().toLowerCase());
-          const rows = table.querySelectorAll('tr');
-          for (let i = 1; i < rows.length; i++) {
-            const cells = rows[i].querySelectorAll('td');
-            if (cells.length !== headers.length) continue;
-            const f = {};
-            headers.forEach((h, idx) => f[h] = cells[idx].textContent.trim());
-            const rawName = f.name || f.bezeichnung || '';
-            const type = f.type_code || f.geozone_art || 'Spezifische Geozone';
-            const name = rawName || type;
-            const extRef = f.external_reference || f.identifikation || '';
-            let lower = f.lower_limit_altitude || f.untere_grenze || '0.0';
-            let lowerRef = f.lower_limit_alt_ref || 'AGL';
-            let lowerUnit = f.lower_limit_unit || 'm';
-            if (lower === '0.0' && lowerRef === 'AGL') lower = 'GND';
-            else lower = `${lower} ${lowerUnit} ${lowerRef}`.trim();
-            let upper = f.upper_limit_altitude || f.obere_grenze || '';
-            let upperRef = f.upper_limit_alt_ref || '';
-            let upperUnit = f.upper_limit_unit || '';
-            if (upper === '99999.0' || upper === 'UNL') upper = 'UNL';
-            else if (upper) upper = `${upper} ${upperUnit} ${upperRef}`.trim();
-            else upper = '—';
-            const legal = f.legal_ref || f.rechtliche_grundlage || '—';
-            params.push({
-              name: name + (rawName && extRef && extRef !== 'null' ? ` (${extRef})` : ''),
-              type, lower, upper, legal, color: zoneColor(type)
-            });
-          }
-        });
-        return params;
+        // Kombinierte Abfrage gescheitert: einzelnen defekten Layer per Recovery isolieren.
+        if (isServiceException(html)) return await fetchZonesPerLayer(activeL, bbox);
+        return parseZoneHtml(html);
       } catch (e) { return []; }
     }
 
