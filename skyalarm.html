@@ -606,6 +606,16 @@
       color: var(--text);
       margin-top: 0;
     }
+    #splash .splash-auto {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      margin-top: 0.3rem;
+      font-size: 0.78rem;
+      color: var(--text2);
+      cursor: pointer;
+    }
+    #splash .splash-auto input { cursor: pointer; }
 
     /* === INFO MODAL === */
     .modal-overlay {
@@ -739,6 +749,7 @@
     <div id="alarm-map"></div>
     <div class="av-ctrl">
       <button class="av-btn" id="av-gps" data-i18n-title="ctrlGps" title="GPS">⊕</button>
+      <button class="av-btn" id="av-autostart" data-i18n-title="ctrlAutostart" title="Auto-Start">⚡</button>
       <button class="av-btn on" id="av-zones" data-i18n-title="ctrlZones" title="Geozonen">⬡</button>
       <button class="av-btn" id="av-labels" data-i18n-title="ctrlLabels" title="Fluggerät-Infos einblenden">✈</button>
       <button class="av-btn" id="av-radius" data-i18n-title="ctrlRadius" title="Detektionsradius">◎</button>
@@ -761,6 +772,7 @@
     <p data-i18n="splashIntro">Echtzeit-Tiefflieger-Alarm und Geozonen-Karte. Für die volle Funktion wird der aktuelle Standort benötigt.</p>
     <button class="splash-btn" id="splash-gps" data-i18n="splashGps">Standort verwenden</button>
     <button class="splash-btn secondary" id="splash-default" data-i18n="splashDefault">Mit Standardposition starten (München)</button>
+    <label class="splash-auto"><input type="checkbox" id="splash-auto"><span data-i18n="splashAuto">Beim Start automatisch Standort verwenden</span></label>
     <p id="splash-status" style="font-size:0.75rem;opacity:0.65;"></p>
     <div class="modal-srcs splash-srcs">
       <a href="https://airplanes.live/" target="_blank" rel="noopener">airplanes.live</a>
@@ -802,7 +814,7 @@
 
   <script>
     /* [J-VER] Versionsnummer — einzige Stelle */
-    const APP_VER = '0.30';
+    const APP_VER = '0.31';
     document.querySelectorAll('.l-ver').forEach(e => e.textContent = APP_VER);
 
     /* [J-I18N] Internationalisierung — DE/EN, alarm-spezifisch */
@@ -812,6 +824,7 @@
         statWatch: '● Beobachte',
         statAlarm: n => '⚠ ' + n + ' Flugzeug' + (n > 1 ? 'e' : ''),
         ctrlGps: 'Aktuellen Standort verwenden',
+        ctrlAutostart: 'Auto-Start: beim Öffnen direkt den Standort verwenden',
         ctrlZones: 'Geozonen ein/aus',
         ctrlLabels: 'Fluggerät-Infos dauerhaft einblenden',
         ctrlRadius: 'Detektionsradius umschalten',
@@ -826,6 +839,7 @@
         splashIntro: 'Echtzeit-Tiefflieger-Alarm und Geozonen-Karte. Für die volle Funktion wird der aktuelle Standort benötigt.',
         splashGps: 'Standort verwenden',
         splashDefault: 'Mit Standardposition starten (München)',
+        splashAuto: 'Beim Start automatisch Standort verwenden',
         splashWaiting: 'Standort wird abgefragt…',
         splashDenied: 'Standortzugriff verweigert. Standardposition wird verwendet.',
         infoTitle: 'Über SkyAlarm',
@@ -868,6 +882,7 @@
         statWatch: '● Watching',
         statAlarm: n => '⚠ ' + n + ' aircraft',
         ctrlGps: 'Use current location',
+        ctrlAutostart: 'Auto-start: use location immediately on launch',
         ctrlZones: 'Toggle airspace zones',
         ctrlLabels: 'Show aircraft labels permanently',
         ctrlRadius: 'Cycle detection radius',
@@ -882,6 +897,7 @@
         splashIntro: 'Real-time low-altitude aircraft alert and airspace map. Full functionality requires your current location.',
         splashGps: 'Use my location',
         splashDefault: 'Start with default position (Munich)',
+        splashAuto: 'Auto-use my location on startup',
         splashWaiting: 'Requesting location…',
         splashDenied: 'Location denied. Using default position.',
         infoTitle: 'About SkyAlarm',
@@ -969,7 +985,7 @@
       interval: null, beepInterval: null, weatherInterval: null,
       lat: null, lon: null,
       lastZones: [], lastWeather: null,
-      zonesOn: true, lightMode: false, alarmOn: false, allLabels: false, styleIdx: 0,
+      zonesOn: true, lightMode: false, alarmOn: false, allLabels: false, autoStart: false, styleIdx: 0,
       openPopupHex: null,
       RADIUS_KM: 2, POLL_MS: 2000, ALT_LIMIT_FT: 984, SCAN_KM: 18.52, TRAIL_SEC: 60,
       RADIUS_OPTS: [2, 4, 6], radiusIdx: 0, radiusInfoTimer: null,
@@ -1739,6 +1755,30 @@
       );
     }
 
+    /* Auto-Start: Splash überspringen und direkt den Standort verwenden.
+       Persistenz in localStorage, spiegelbar über Splash-Checkbox und Kartenleisten-Toggle. */
+    function applyAutoStartUi() {
+      const b = $('av-autostart'); if (b) b.classList.toggle('on', AV.autoStart);
+      const c = $('splash-auto'); if (c) c.checked = AV.autoStart;
+    }
+    function setAutoStart(on) {
+      AV.autoStart = on;
+      localStorage.setItem('skyalarm-autostart', on ? '1' : '0');
+      applyAutoStartUi();
+    }
+    async function maybeAutoStart() {
+      if (!AV.autoStart) return;
+      // Automatischer Start nur bei bereits erteilter GPS-Freigabe — sonst Splash
+      // regulär anzeigen, um Sackgassen bei verweigerter/noch nicht erteilter
+      // Freigabe (insb. iOS/Safari ohne User-Geste) zu vermeiden.
+      try {
+        if (navigator.permissions && navigator.permissions.query) {
+          const st = await navigator.permissions.query({ name: 'geolocation' });
+          if (st.state === 'granted') requestGps();
+        }
+      } catch (e) { /* Permissions-API nicht verfügbar → Splash bleibt sichtbar */ }
+    }
+
     /* [J-EVENTS] Event-Listener */
     document.addEventListener('DOMContentLoaded', () => {
       applyLang();
@@ -1751,6 +1791,12 @@
 
       $('splash-gps').addEventListener('click', requestGps);
       $('splash-default').addEventListener('click', () => startApp(DEFAULT_LAT, DEFAULT_LON));
+
+      AV.autoStart = localStorage.getItem('skyalarm-autostart') === '1';
+      applyAutoStartUi();
+      $('splash-auto').addEventListener('change', e => setAutoStart(e.target.checked));
+      $('av-autostart').addEventListener('click', () => setAutoStart(!AV.autoStart));
+      maybeAutoStart();
 
       $('av-gps').addEventListener('click', () => {
         if (!navigator.geolocation) return;
