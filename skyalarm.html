@@ -831,7 +831,7 @@
 
   <script>
     /* [J-VER] Versionsnummer — einzige Stelle */
-    const APP_VER = '0.35';
+    const APP_VER = '0.36';
     document.querySelectorAll('.l-ver').forEach(e => e.textContent = APP_VER);
 
     /* [J-I18N] Internationalisierung — DE/EN, alarm-spezifisch */
@@ -1014,6 +1014,7 @@
       lastZones: [], lastWeather: null,
       zonesOn: true, lightMode: false, alarmOn: false, allLabels: false, autoStart: false, styleIdx: 0,
       openPopupHex: null,
+      _polling: false, lastPlanes: null, alarmMissCount: 0, ALARM_HOLD: 3,
       RADIUS_KM: 2, POLL_MS: 2000, ALT_LIMIT_FT: 984, SCAN_KM: 18.52, TRAIL_SEC: 60,
       RADIUS_OPTS: [2, 4, 6], radiusIdx: 0, radiusInfoTimer: null,
       WEATHER_POLL_MS: 600000, /* alle 10 min Wetter aktualisieren */
@@ -1562,33 +1563,46 @@
     function avStartPoll() { avPoll(); AV.interval = setInterval(avPoll, AV.POLL_MS); }
 
     async function avPoll() {
-      // ADS-B (api.airplanes.live, 10 NM Radius) und OGN-Proxy parallel abrufen.
-      // Fehler an einer Quelle beeinträchtigen die andere nicht — die jeweils erfolgreiche
-      // Antwort fließt regulär in den Marker-Aufbau ein.
-      const km = AV.SCAN_KM.toFixed(1);
-      const adsbP = fetch(ADSB_URL + '/' + AV.lat + '/' + AV.lon + '/10')
-        .then(r => r.json()).then(d => (d.ac || []).map(a => ({ ...a, source: a.source || 'ads-b' })))
-        .catch(() => []);
-      const ognP = fetch(OGN_URL + '?lat=' + AV.lat + '&lon=' + AV.lon + '&km=' + km)
-        .then(r => r.ok ? r.json() : { ac: [] }).then(d => d.ac || [])
-        .catch(() => []);
-      const [adsb, ogn] = await Promise.all([adsbP, ognP]);
-      // Deduplizierung über ICAO-Hex: ADS-B hat Vorrang, OGN ergänzt nur fehlende Targets
-      const merged = new Map();
-      adsb.forEach(a => { if (a.hex) merged.set(a.hex.toLowerCase(), a); });
-      ogn.forEach(a => {
-        const key = (a.hex || '').toLowerCase();
-        if (!key) return;
-        if (merged.has(key)) {
-          // Beide Feeds kennen das Target — markieren, ADS-B-Datensatz behalten
-          merged.get(key).dual_source = true;
-        } else {
-          merged.set(key, a);
-        }
-      });
-      const planes = Array.from(merged.values());
-      avUpdateMarkers(planes);
-      avCheckProx(planes);
+      // In-Flight-Guard: bei langsamem Feed dürfen sich Polls nicht überlappen, sonst
+      // überschreiben verspätete (out-of-order) Antworten neuere Daten und Trails doppeln sich.
+      if (AV._polling) return;
+      AV._polling = true;
+      // AbortController mit Timeout: hängende Requests auf schwachem Mobilfunk sonst
+      // akkumulieren bis zum Verbindungslimit.
+      const ctrl = new AbortController();
+      const to = setTimeout(() => ctrl.abort(), 6000);
+      try {
+        // ADS-B (api.airplanes.live, 10 NM Radius) und OGN-Proxy parallel abrufen.
+        // Fehler an einer Quelle beeinträchtigen die andere nicht.
+        const km = AV.SCAN_KM.toFixed(1);
+        const adsbP = fetch(ADSB_URL + '/' + AV.lat + '/' + AV.lon + '/10', { signal: ctrl.signal })
+          .then(r => r.json()).then(d => (d.ac || []).map(a => ({ ...a, source: a.source || 'ads-b' })))
+          .catch(() => []);
+        const ognP = fetch(OGN_URL + '?lat=' + AV.lat + '&lon=' + AV.lon + '&km=' + km, { signal: ctrl.signal })
+          .then(r => r.ok ? r.json() : { ac: [] }).then(d => d.ac || [])
+          .catch(() => []);
+        const [adsb, ogn] = await Promise.all([adsbP, ognP]);
+        // Deduplizierung über ICAO-Hex: ADS-B hat Vorrang, OGN ergänzt nur fehlende Targets
+        const merged = new Map();
+        adsb.forEach(a => { if (a.hex) merged.set(a.hex.toLowerCase(), a); });
+        ogn.forEach(a => {
+          const key = (a.hex || '').toLowerCase();
+          if (!key) return;
+          if (merged.has(key)) {
+            // Beide Feeds kennen das Target — markieren, ADS-B-Datensatz behalten
+            merged.get(key).dual_source = true;
+          } else {
+            merged.set(key, a);
+          }
+        });
+        const planes = Array.from(merged.values());
+        AV.lastPlanes = planes;
+        avUpdateMarkers(planes);
+        avCheckProx(planes);
+      } finally {
+        clearTimeout(to);
+        AV._polling = false;
+      }
     }
 
     function avUpdateMarkers(planes) {
@@ -1702,6 +1716,7 @@
       avUpdateLowAlt(low);
       const near = low.filter(a => avDist(AV.lat, AV.lon, a.lat, a.lon) < AV.RADIUS_KM);
       if (near.length) {
+        AV.alarmMissCount = 0;                 // Hysterese-Zähler zurücksetzen
         const a = near[0];
         const cs = a.flight ? a.flight.trim() : (a.hex || '?');
         const d = avDist(AV.lat, AV.lon, a.lat, a.lon);
@@ -1721,8 +1736,17 @@
           }, 5000);
         }
       } else {
+        // Hysterese: Ein aktiver Alarm wird erst nach ALARM_HOLD aufeinanderfolgenden
+        // leeren Zyklen aufgehoben. Das überbrückt Feed-Lücken (airplanes.live-Rate-Limit)
+        // und Grenzflattern an der Radius-/Höhengrenze, die sonst Beep-Ketten im 2-s-Takt
+        // erzeugen würden. Während des Haltens bleiben Banner/Beep/visueller Kanal aktiv.
+        if (AV.alarmOn && AV.alarmMissCount < AV.ALARM_HOLD) {
+          AV.alarmMissCount++;
+          return;
+        }
         if (AV.alarmOn && AV.beepInterval) { clearInterval(AV.beepInterval); AV.beepInterval = null; }
         AV.alarmOn = false;
+        AV.alarmMissCount = 0;
         $('av-stat').className = 'av-stat watch';
         $('av-stat').textContent = _t('statWatch');
         $('av-banner').className = 'av-banner';
@@ -1751,8 +1775,10 @@
       AV.RADIUS_KM = opts[AV.radiusIdx];
       if (AV.radiusCirc) AV.radiusCirc.setRadius(AV.RADIUS_KM * 1000);
       showRadiusInfo();
-      // Proximity-Logik sofort mit neuem Radius nachziehen
-      avPoll();
+      // Proximity-Logik sofort mit neuem Radius nachziehen — aus dem Cache re-rendern,
+      // damit der In-Flight-Guard die sofortige Aktualisierung nicht verschluckt.
+      if (AV.lastPlanes) { avUpdateMarkers(AV.lastPlanes); avCheckProx(AV.lastPlanes); }
+      else avPoll();
     }
 
     function showRadiusInfo() {
@@ -1947,8 +1973,9 @@
       $('av-labels').addEventListener('click', () => {
         AV.allLabels = !AV.allLabels;
         $('av-labels').classList.toggle('on', AV.allLabels);
-        // Labels sofort sichtbar machen, statt auf den nächsten Poll zu warten
-        avPoll();
+        // Labels sofort sichtbar machen — aus dem Cache re-rendern (In-Flight-Guard-sicher)
+        if (AV.lastPlanes) avUpdateMarkers(AV.lastPlanes);
+        else avPoll();
       });
 
       $('av-radius').addEventListener('click', () => {
