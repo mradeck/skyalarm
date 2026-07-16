@@ -814,7 +814,7 @@
 
   <script>
     /* [J-VER] Versionsnummer — einzige Stelle */
-    const APP_VER = '0.31';
+    const APP_VER = '0.32';
     document.querySelectorAll('.l-ver').forEach(e => e.textContent = APP_VER);
 
     /* [J-I18N] Internationalisierung — DE/EN, alarm-spezifisch */
@@ -1169,9 +1169,13 @@
     /* [J-FETCHWEATHER] BrightSky — aktueller Wind, Böen, Niederschlag, Temperatur */
     async function fetchWeather(lat, lon) {
       const now = new Date();
+      // Start bei now−1h, damit die Beobachtung der laufenden Stunde enthalten ist
+      const start = new Date(now.getTime() - 3600 * 1000);
       const end = new Date(now.getTime() + 6 * 3600 * 1000);
-      const dFmt = d => d.toISOString().slice(0, 10);
-      const url = `${BRIGHTSKY_URL}?lat=${lat}&lon=${lon}&date=${dFmt(now)}&last_date=${dFmt(end)}&units=si`;
+      // Volle ISO-Timestamps: Datum-only ('YYYY-MM-DD') lieferte bei date === last_date
+      // NUR den 00:00-UTC-Datensatz — die App zeigte dann ganztägig Mitternachtswerte
+      const tFmt = d => encodeURIComponent(d.toISOString());
+      const url = `${BRIGHTSKY_URL}?lat=${lat}&lon=${lon}&date=${tFmt(start)}&last_date=${tFmt(end)}&units=si`;
       try {
         const r = await fetch(url);
         if (!r.ok) return null;
