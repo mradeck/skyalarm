@@ -831,7 +831,7 @@
 
   <script>
     /* [J-VER] Versionsnummer — einzige Stelle */
-    const APP_VER = '0.34';
+    const APP_VER = '0.35';
     document.querySelectorAll('.l-ver').forEach(e => e.textContent = APP_VER);
 
     /* [J-I18N] Internationalisierung — DE/EN, alarm-spezifisch */
@@ -971,6 +971,15 @@
       if (AV.lat != null) { avRefreshTexts(); }
     }
     function $(id) { return document.getElementById(id); }
+
+    /* HTML-Escaping für Fremddaten (Callsigns aus ADS-B/OGN, DiPUL-Zonennamen), die per
+       innerHTML / Leaflet bindPopup / bindTooltip ins DOM gelangen. OGN-Gerätenamen sind
+       frei registrierbar; ohne Escaping wären sie ein Stored-XSS-Vektor. Nur für HTML-Sinks
+       nötig — textContent-Ziele escapen der Browser bereits selbst. */
+    function escapeHtml(s) {
+      return String(s == null ? '' : s).replace(/[&<>"']/g, c =>
+        ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    }
     function avRefreshTexts() {
       const stat = $('av-stat');
       if (stat && stat.classList.contains('watch')) stat.textContent = _t('statWatch');
@@ -1149,14 +1158,14 @@
         <div class="z-item">
           <div style="display:flex;align-items:center;gap:0.45rem;margin-bottom:0.35rem;">
             <div style="background:${z.color};width:9px;height:9px;border-radius:50%;flex-shrink:0;"></div>
-            <div class="z-name">${z.name}</div>
+            <div class="z-name">${escapeHtml(z.name)}</div>
           </div>
           <div class="z-details">
-            <div class="z-row"><span class="z-lbl">${_t('lblType')}</span><span class="z-val">${z.type}</span></div>
-            <div class="z-row"><span class="z-lbl">${_t('lblLower')}</span><span class="z-val">${z.lower}</span></div>
-            <div class="z-row"><span class="z-lbl">${_t('lblUpper')}</span><span class="z-val">${z.upper}</span></div>
+            <div class="z-row"><span class="z-lbl">${_t('lblType')}</span><span class="z-val">${escapeHtml(z.type)}</span></div>
+            <div class="z-row"><span class="z-lbl">${_t('lblLower')}</span><span class="z-val">${escapeHtml(z.lower)}</span></div>
+            <div class="z-row"><span class="z-lbl">${_t('lblUpper')}</span><span class="z-val">${escapeHtml(z.upper)}</span></div>
             <div class="z-row"><span class="z-lbl">${_t('lblLegal')}</span><span class="z-val">
-              <a href="${getLegalLink(z.legal)}" target="_blank" style="color:var(--accent);text-decoration:none;">${z.legal}</a>
+              <a href="${encodeURI(getLegalLink(z.legal))}" target="_blank" rel="noopener" style="color:var(--accent);text-decoration:none;">${escapeHtml(z.legal)}</a>
             </span></div>
           </div>
         </div>`).join('');
@@ -1292,7 +1301,7 @@
           $z.innerHTML = `<div class="ms-zone-item go">${_t('msNoRestr')}</div>`;
         } else {
           $z.innerHTML = items.map(it =>
-            `<div class="ms-zone-item"><span class="ms-zone-dot" style="background:${it.color}"></span><span>${it.label}</span></div>`
+            `<div class="ms-zone-item"><span class="ms-zone-dot" style="background:${it.color}"></span><span>${escapeHtml(it.label)}</span></div>`
           ).join('');
         }
       }
@@ -1619,7 +1628,7 @@
           className: '', iconSize: [sz, sz], iconAnchor: [sz/2, sz/2]
         });
         const m = L.marker([a.lat, a.lon], { icon }).addTo(AV.acLayer);
-        const cs = a.flight ? a.flight.trim() : (a.hex || '?');
+        const cs = escapeHtml(a.flight ? a.flight.trim() : (a.hex || '?'));
         const altM = altAglM(a);                          // Höhe über Grund (AGL) in m, ≥ 0
         const altShown = (altM == null) ? '?' : altM;
         const baroShown = (a.alt_baro != null) ? a.alt_baro : '?';
@@ -1726,7 +1735,7 @@
       if (!lowPlanes.length) { el.className = 'av-lowalt'; el.innerHTML = ''; return; }
       el.className = 'av-lowalt show';
       const rows = lowPlanes.map(a => {
-        const cs = a.flight ? a.flight.trim() : (a.hex || '?');
+        const cs = escapeHtml(a.flight ? a.flight.trim() : (a.hex || '?'));
         const altM = altAglM(a);
         const dist = avDist(AV.lat, AV.lon, a.lat, a.lon);
         const spd = (a.gs != null) ? (a.gs * 0.5144).toFixed(1) : '?';
