@@ -77,13 +77,20 @@ In-Flight-Guard + `AbortController` mit Timeout. Gemeinsam mit H2 gelöst.
 
 | ID | Datei | Befund | Status |
 |----|-------|--------|--------|
-| M1 | `skyalarm.html:1496` | Kein Netz-Backoff — 2-s-Poll hämmert im Funkloch weiter | 🔴 offen |
-| M2 | `skyalarm.html:1534` | Marker-/Trail-Vollrebuild alle 2 s → GC-Churn bei ~50 Zielen | 🔴 offen |
-| M3 | `ogn.js` | Offener CORS-Proxy ohne Rate-Limit/Origin-Check (km auf 1–100 geclamped, keine SSRF) | 🔴 offen |
+| M1 | `skyalarm.html:1496` | Kein Netz-Backoff — 2-s-Poll hämmert im Funkloch weiter | 🟢 (v0.38) |
+| M2 | `skyalarm.html:1534` | Marker-/Trail-Vollrebuild alle 2 s → GC-Churn bei ~50 Zielen | 🟢 (v0.38) |
+| M3 | `ogn.js` | Offener CORS-Proxy ohne Rate-Limit/Origin-Check (km auf 1–100 geclamped, keine SSRF) | 🟢 (v0.38) |
 | N1 | `skyalarm.html:1197` | Einzelner BrightSky-Fehler leert Wetter-Overlay für bis zu 10 min | 🟢 (v0.37) |
-| N2 | `ogn.js:86` | Pseudo-Hex-Kollision `'ogn-'` bei fehlender ICAO+ognId | 🔴 offen |
+| N2 | `ogn.js:86` | Pseudo-Hex-Kollision `'ogn-'` bei fehlender ICAO+ognId | 🟢 (v0.38) |
 | N3 | `skyalarm.html:1637` | Alarm-Banner zeigt `near[0]` statt nächstgelegenes Target | 🟢 (v0.37) |
-| N4 | `skyalarm.html:1303` | Vereisungs-Kritikband endet bei −10 °C (luftfahrtüblich bis ~−20 °C) | 🔴 offen |
+| N4 | `skyalarm.html:1303` | Vereisungs-Kritikband endet bei −10 °C (luftfahrtüblich bis ~−20 °C) | 🟢 (v0.38) |
+
+### Umsetzungs-Notizen v0.38
+- **M1**: Poll von `setInterval` auf selbst-planendes `setTimeout` umgestellt; exponentielles Backoff (`POLL_MS·2^streak`, Deckel 30 s) bei aufeinanderfolgenden Netzfehlern, Erfolgserkennung pro Quelle (`anyOk`).
+- **M2**: je Trail nur noch **eine** Polyline (statt einer pro Segment) → ~29× weniger Leaflet-Objekte pro Poll. Opazitätsverlauf entfällt zugunsten fester Deckkraft. Marker-Rebuild (Divicons) bewusst unangetastet (nicht der dominante Kostenfaktor, Popup-Persistenz-Risiko).
+- **M3**: Origin/Referer-Prüfung (nur `skyalarm.netlify.app`, `*--skyalarm.netlify.app`, localhost; fehlender Header fail-open für Privacy-Configs), reflektiertes CORS statt `*`, roher Fehlertext nur noch serverseitig geloggt. Kein echtes Rate-Limiting (bräuchte externen State) — deckt aber den Vektor „fremde Seite ruft per fetch".
+- **N2**: Pseudo-Hex-Eindeutigkeitskette `ognId || fullId || csShort || lat_lon`.
+- **N4**: Kritikband auf `t50 ∈ [−20, 0] °C` erweitert.
 
 ---
 

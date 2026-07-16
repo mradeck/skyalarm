@@ -831,7 +831,7 @@
 
   <script>
     /* [J-VER] Versionsnummer — einzige Stelle */
-    const APP_VER = '0.37';
+    const APP_VER = '0.38';
     document.querySelectorAll('.l-ver').forEach(e => e.textContent = APP_VER);
 
     /* [J-I18N] Internationalisierung — DE/EN, alarm-spezifisch */
@@ -1345,7 +1345,8 @@
             const td50 = +(tdSurf - TD_LAPSE * ALT).toFixed(1);
             const spread = +(t50 - td50).toFixed(1);
             let label, cls, icon;
-            if (t50 >= -10 && t50 <= 0 && spread < 1) {
+            if (t50 >= -20 && t50 <= 0 && spread < 1) {
+              // Unterkühlte Wassertröpfchen sind luftfahrtüblich bis etwa −20 °C vereisungsrelevant.
               label = _t('dpCrit'); cls = 'crit'; icon = '🧊';
             } else if (t50 < 3 && spread < 2) {
               label = _t('dpFog'); cls = 'warn'; icon = '🌫';
@@ -1562,7 +1563,22 @@
       });
     }
 
-    function avStartPoll() { avPoll(); AV.interval = setInterval(avPoll, AV.POLL_MS); }
+    // Self-scheduling-Poll: nach jedem Lauf wird der nächste per setTimeout geplant.
+    // Das erlaubt exponentielles Backoff bei Netzverlust (kein Dauerfeuer im Funkloch).
+    function avStartPoll() { avPoll(); }
+    function avScheduleNextPoll(anyOk) {
+      if (anyOk) {
+        AV.pollFailStreak = 0;
+      } else {
+        AV.pollFailStreak = Math.min(AV.pollFailStreak + 1, 5);   // Backoff-Deckel
+      }
+      // Bei Erfolg reguläres POLL_MS; bei aufeinanderfolgenden Fehlern verdoppeln (max 30 s).
+      const delay = AV.pollFailStreak === 0
+        ? AV.POLL_MS
+        : Math.min(AV.POLL_MS * Math.pow(2, AV.pollFailStreak), 30000);
+      clearTimeout(AV._pollTimer);
+      AV._pollTimer = setTimeout(avPoll, delay);
+    }
 
     async function avPoll() {
       // In-Flight-Guard: bei langsamem Feed dürfen sich Polls nicht überlappen, sonst
@@ -1573,15 +1589,16 @@
       // akkumulieren bis zum Verbindungslimit.
       const ctrl = new AbortController();
       const to = setTimeout(() => ctrl.abort(), 6000);
+      let anyOk = false;   // mindestens eine Quelle netzwerkseitig erreichbar?
       try {
         // ADS-B (api.airplanes.live, 10 NM Radius) und OGN-Proxy parallel abrufen.
         // Fehler an einer Quelle beeinträchtigen die andere nicht.
         const km = AV.SCAN_KM.toFixed(1);
         const adsbP = fetch(ADSB_URL + '/' + AV.lat + '/' + AV.lon + '/10', { signal: ctrl.signal })
-          .then(r => r.json()).then(d => (d.ac || []).map(a => ({ ...a, source: a.source || 'ads-b' })))
+          .then(r => { anyOk = true; return r.json(); }).then(d => (d.ac || []).map(a => ({ ...a, source: a.source || 'ads-b' })))
           .catch(() => []);
         const ognP = fetch(OGN_URL + '?lat=' + AV.lat + '&lon=' + AV.lon + '&km=' + km, { signal: ctrl.signal })
-          .then(r => r.ok ? r.json() : { ac: [] }).then(d => d.ac || [])
+          .then(r => { anyOk = true; return r.ok ? r.json() : { ac: [] }; }).then(d => d.ac || [])
           .catch(() => []);
         const [adsb, ogn] = await Promise.all([adsbP, ognP]);
         // Deduplizierung über ICAO-Hex: ADS-B hat Vorrang, OGN ergänzt nur fehlende Targets
@@ -1604,6 +1621,7 @@
       } finally {
         clearTimeout(to);
         AV._polling = false;
+        avScheduleNextPoll(anyOk);
       }
     }
 
@@ -1684,13 +1702,11 @@
         AV.trails[hex] = AV.trails[hex].filter(p => p.ts > cutoff);
         const pts = AV.trails[hex];
         if (pts.length >= 2) {
-          for (let i = 1; i < pts.length; i++) {
-            const age = (now - pts[i].ts) / (AV.TRAIL_SEC * 1000);
-            const op = Math.max(0.3, 1 - age);
-            L.polyline([[pts[i-1].lat, pts[i-1].lon], [pts[i].lat, pts[i].lon]], {
-              color: clr, weight: isLow ? 3 : 2.2, opacity: op, lineCap: 'round'
-            }).addTo(AV.trailLayer);
-          }
+          // Eine einzige Polyline pro Trail statt einer pro Segment: reduziert die pro Poll
+          // erzeugten/verworfenen Leaflet-Objekte um bis zu Faktor ~29 (GC-Churn auf Mobilgeräten).
+          L.polyline(pts.map(p => [p.lat, p.lon]), {
+            color: clr, weight: isLow ? 3 : 2.2, opacity: 0.6, lineCap: 'round', lineJoin: 'round'
+          }).addTo(AV.trailLayer);
         }
       });
       for (const hex of Object.keys(AV.trails)) {
@@ -1698,13 +1714,9 @@
           AV.trails[hex] = AV.trails[hex].filter(p => p.ts > cutoff);
           const pts = AV.trails[hex];
           if (pts.length >= 2) {
-            for (let i = 1; i < pts.length; i++) {
-              const age = (now - pts[i].ts) / (AV.TRAIL_SEC * 1000);
-              const op = Math.max(0.25, 1 - age);
-              L.polyline([[pts[i-1].lat, pts[i-1].lon], [pts[i].lat, pts[i].lon]], {
-                color: '#a78bfa', weight: 2, opacity: op, lineCap: 'round'
-              }).addTo(AV.trailLayer);
-            }
+            L.polyline(pts.map(p => [p.lat, p.lon]), {
+              color: '#a78bfa', weight: 2, opacity: 0.4, lineCap: 'round', lineJoin: 'round'
+            }).addTo(AV.trailLayer);
           }
           if (!pts.length) delete AV.trails[hex];
         }

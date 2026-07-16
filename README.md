@@ -87,7 +87,7 @@ Erstmaliges Setup (Referenz, falls eine Spiegelinstanz aufgesetzt werden soll):
 
 ## Versionierung
 
-Die Versionsnummer steht ausschließlich in `const APP_VER` in `skyalarm.html` (Anker `[J-VER]`, Zeile ~834) und wird per DOM-Updater an Header (`<sup class="l-ver">`) und Info-Modal (`<span class="l-ver">`) propagiert. Aktueller Stand: **v0.37**.
+Die Versionsnummer steht ausschließlich in `const APP_VER` in `skyalarm.html` (Anker `[J-VER]`, Zeile ~834) und wird per DOM-Updater an Header (`<sup class="l-ver">`) und Info-Modal (`<span class="l-ver">`) propagiert. Aktueller Stand: **v0.38**.
 
 Die vollständige Versions-Historie ist in `CLAUDE.md` dokumentiert.
 

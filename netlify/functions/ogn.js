@@ -79,11 +79,16 @@ function parseOgnXml(xml) {
     if (OGN_STATIC.has(ognType)) continue;        // statische Objekte überspringen
     const icaoHex = String(f[12] || '').trim();
     const ognId = String(f[13] || '').trim();
+    const csShort = String(f[2] || '').trim();
     const fullId = String(f[3] || '').trim();    // bevorzugt; z. B. "D-AIRH" statt "RH"
 
-    // OGN-only-Targets (FLARM, OGN-Tracker) erhalten Pseudo-Hex mit Präfix,
-    // damit Deduplizierung mit echten ICAO-Hex-Targets nicht fälschlich greift.
-    const hex = (icaoHex && icaoHex !== '0') ? icaoHex.toLowerCase() : ('ogn-' + ognId);
+    // OGN-only-Targets (FLARM, OGN-Tracker) erhalten Pseudo-Hex mit Präfix, damit die
+    // Deduplizierung mit echten ICAO-Hex-Targets nicht fälschlich greift. Eindeutigkeits-
+    // Kette gegen Kollision: ohne ognId würden sonst ALLE ID-losen Targets auf 'ogn-'
+    // kollabieren und clientseitig bis auf eines verworfen — daher Fallback auf Kennung,
+    // Callsign und zuletzt die (praktisch eindeutige) Position.
+    const uid = ognId || fullId || csShort || (lat.toFixed(5) + '_' + lon.toFixed(5));
+    const hex = (icaoHex && icaoHex !== '0') ? icaoHex.toLowerCase() : ('ogn-' + uid);
 
     // Kategorie: bekannte OGN-Typen direkt übernehmen, unbekannte/fehlende
     // über die Speed-Heuristik klassifizieren.
@@ -105,12 +110,33 @@ function parseOgnXml(xml) {
 }
 
 exports.handler = async (event) => {
+  // Herkunftsprüfung: verhindert die Nutzung als offener OGN-Proxy durch fremde Websites
+  // (Function-Invocation-/Upstream-Missbrauch). Kein Ersatz für echtes Rate-Limiting
+  // (bräuchte externen State) und gegen non-Browser-Clients mit gefälschtem Header nicht
+  // wirksam — deckt aber den realistischen Vektor „fremde Seite ruft uns per fetch" ab.
+  const hdr = event.headers || {};
+  const src = hdr.origin || hdr.referer || '';
+  let host = '';
+  try { if (src) host = new URL(src).hostname; } catch (e) { host = ''; }
+  const allowed = !host                                   // fehlender Header → nicht blockieren (Privacy-Konfigs)
+    || host === 'skyalarm.netlify.app'
+    || host.endsWith('--skyalarm.netlify.app')            // Deploy-Previews / Branch-Deploys
+    || host === 'localhost' || host === '127.0.0.1';
+  const allowOrigin = (hdr.origin && allowed) ? hdr.origin : 'https://skyalarm.netlify.app';
   const cors = {
-    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Origin': allowOrigin,
     'Access-Control-Allow-Methods': 'GET, OPTIONS',
+    'Vary': 'Origin',
   };
   if (event.httpMethod === 'OPTIONS') {
     return { statusCode: 204, headers: cors, body: '' };
+  }
+  if (!allowed) {
+    return {
+      statusCode: 403,
+      headers: { ...cors, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ error: 'forbidden_origin', ac: [] }),
+    };
   }
 
   const q = event.queryStringParameters || {};
@@ -166,10 +192,13 @@ exports.handler = async (event) => {
     };
   } catch (e) {
     clearTimeout(timer);
+    // Rohe Fehlermeldung nur serverseitig loggen, nicht an den Client durchreichen
+    // (vermied Informationsleck über Upstream-/Netzwerkinterna).
+    console.error('ogn upstream error:', e && e.message || e);
     return {
       statusCode: 502,
       headers: { ...cors, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ error: 'ogn_unavailable', message: String(e && e.message || e), ac: [] }),
+      body: JSON.stringify({ error: 'ogn_unavailable', ac: [] }),
     };
   }
 };
