@@ -831,7 +831,7 @@
 
   <script>
     /* [J-VER] Versionsnummer — einzige Stelle */
-    const APP_VER = '0.33';
+    const APP_VER = '0.34';
     document.querySelectorAll('.l-ver').forEach(e => e.textContent = APP_VER);
 
     /* [J-I18N] Internationalisierung — DE/EN, alarm-spezifisch */
@@ -986,6 +986,7 @@
     const ADSB_URL = 'https://api.airplanes.live/v2/point';
     const OGN_URL = '/.netlify/functions/ogn';   // Proxy für live.glidernet.org/lxml.php
     const BRIGHTSKY_URL = 'https://api.brightsky.dev/weather';
+    const ELEVATION_URL = 'https://api.open-meteo.com/v1/elevation'; // Geländehöhe (Copernicus DEM, MSL/EGM), CORS, kostenlos
     const DIPUL_ALL_LAYERS = 'bahnanlagen,behoerden,binnenwasserstrassen,bundesautobahnen,bundesstrassen,diplomatische_vertretungen,ffh-gebiete,flugbeschraenkungsgebiete,flughaefen,flugplaetze,freibaeder,haengegleiter,inaktive_temporaere_betriebseinschraenkungen,industrieanlagen,internationale_organisationen,justizvollzugsanstalten,kontrollzonen,kraftwerke,krankenhaeuser,labore,militaerische_anlagen,modellflugplaetze,nationalparks,naturschutzgebiete,polizei,schifffahrtsanlagen,seewasserstrassen,sicherheitsbehoerden,stromleitungen,temporaere_betriebseinschraenkungen,umspannwerke,vogelschutzgebiete,windkraftanlagen,wohngrundstuecke';
     // Zur Laufzeit als defekt erkannte DiPUL-Layer (GeoServer-ServiceException).
     // Nur in-memory pro Session: ein von DiPUL reparierter Layer erscheint nach Reload
@@ -1218,6 +1219,21 @@
       const w = await fetchWeather(AV.lat, AV.lon);
       AV.lastWeather = w;
       renderStatusOverlay(w, AV.lastZones || []);
+    }
+
+    /* Geländehöhe am Pilotenstandort (MSL) — Basis für die AGL-Näherung im Alarm.
+       ADS-B/OGN liefern MSL-Höhen; ohne Abzug der Geländehöhe würde der als
+       „300 m über Grund" gemeinte Schwellwert in erhöhtem Gelände echte Tiefflieger
+       verfehlen. Bei Fehler bleibt groundElevM auf dem letzten Wert (bzw. null →
+       Fallback auf reine MSL-Prüfung). */
+    async function fetchGroundElevation(lat, lon) {
+      try {
+        const r = await fetch(ELEVATION_URL + '?latitude=' + lat + '&longitude=' + lon);
+        if (!r.ok) return;
+        const d = await r.json();
+        const e = Array.isArray(d.elevation) ? d.elevation[0] : null;
+        if (typeof e === 'number' && isFinite(e)) AV.groundElevM = e;
+      } catch (e) { /* Netzfehler → alten Wert behalten */ }
     }
 
     /* [J-RENDER-STATUS] Kompakt-Overlay: Zonen-Kurzlabels, Wind/Böen, Eisalarm */
@@ -1472,6 +1488,29 @@
         + close;
     }
 
+    /* [J-ALT] Höhen-Helfer. alt_baro (ADS-B, barometrische Druckhöhe), alt_geom und die
+       OGN-Höhe sind MSL-bezogen. Für die Tiefflieger-Entscheidung zählt die Höhe über dem
+       Pilotenstandort (näherungsweise AGL = MSL − Geländehöhe). alt_baro === 'ground' und
+       fehlende Höhe ergeben null → kein Tiefflieger-Alarm (verhindert Bodenverkehr- und
+       Unbekannt-Höhe-Fehlalarme). Näherung: barometrische Druckhöhe weicht bei QNH ≠ 1013 hPa
+       etwas von der wahren Höhe ab; der Geländeterm (in Bergen kilometerhoch) dominiert dennoch. */
+    function altMslFt(a) {
+      if (a.alt_baro === 'ground') return null;
+      if (a.alt_baro != null) return +a.alt_baro;
+      if (a.alt_geom != null) return +a.alt_geom;   // Fallback geometrische Höhe
+      return null;
+    }
+    function altAglFt(a) {
+      const msl = altMslFt(a);
+      if (msl == null) return null;
+      const groundFt = (AV.groundElevM != null) ? AV.groundElevM * 3.28084 : 0;
+      return msl - groundFt;
+    }
+    function altAglM(a) {                              // gerundete AGL-Meter für die Anzeige, ≥ 0
+      const ft = altAglFt(a);
+      return ft == null ? null : Math.max(0, Math.round(ft * 0.3048));
+    }
+
     /* [J-DIST] Haversine-Distanz in km */
     function avDist(la1, lo1, la2, lo2) {
       const R = 6371, dL = (la2 - la1) * Math.PI / 180, dO = (lo2 - lo1) * Math.PI / 180;
@@ -1507,6 +1546,7 @@
         if (AV.posMarker) AV.posMarker.setLatLng([AV.lat, AV.lon]);
         updateZonesOverlay();
         updateWeatherOverlay();
+        fetchGroundElevation(AV.lat, AV.lon);
       });
     }
 
@@ -1553,15 +1593,14 @@
       AV._cleaningUp = false;
       const now = Date.now();
       const cutoff = now - AV.TRAIL_SEC * 1000;
-      const altFt = a => (a.alt_baro == null || a.alt_baro === 'ground') ? 0 : +a.alt_baro;
       const seen = {};
       planes.forEach(a => {
         if (!a.lat || !a.lon) return;
         const hex = a.hex || '';
         seen[hex] = true;
         const dist = avDist(AV.lat, AV.lon, a.lat, a.lon);
-        const alt = altFt(a);
-        const isLow = alt < AV.ALT_LIMIT_FT;
+        const aglFt = altAglFt(a);
+        const isLow = aglFt != null && aglFt < AV.ALT_LIMIT_FT;
         // Farbpalette mit hoher Sättigung — auch im Dark-Mode klar lesbar.
         // OGN-Targets erhalten einen gedeckten Cyan-Ton (#0891b2), um sie visuell
         // vom ADS-B-Verkehr abzugrenzen. Alarm-Rot bleibt quellunabhängig identisch.
@@ -1581,14 +1620,16 @@
         });
         const m = L.marker([a.lat, a.lon], { icon }).addTo(AV.acLayer);
         const cs = a.flight ? a.flight.trim() : (a.hex || '?');
-        const altM = Math.round(alt * 0.3048);
+        const altM = altAglM(a);                          // Höhe über Grund (AGL) in m, ≥ 0
+        const altShown = (altM == null) ? '?' : altM;
+        const baroShown = (a.alt_baro != null) ? a.alt_baro : '?';
         const spdMs = (a.gs != null) ? (a.gs * 0.5144).toFixed(1) : '?';
         const kindLbl = (kind !== 'plane') ? _t('ac_' + kind) : '';
         const srcTag = (a.source === 'ogn') ? ' · <span class="ac-src">OGN</span>'
                      : (a.dual_source)      ? ' · <span class="ac-src">ADS-B+OGN</span>'
                                             : '';
         const info = '<b>' + cs + '</b>' + (kindLbl ? ' · <span class="ac-kind">' + kindLbl + '</span>' : '')
-                   + '<br>' + dist.toFixed(1) + ' km · ' + altM + ' m (' + (a.alt_baro || '?') + ' ft) · ' + spdMs + ' m/s'
+                   + '<br>' + dist.toFixed(1) + ' km · ' + altShown + ' m AGL (' + baroShown + ' ft MSL) · ' + spdMs + ' m/s'
                    + srcTag;
         m.bindPopup(info);
         // Popup-Persistenz über Poll-Zyklen hinweg: bei jedem Poll werden Marker neu aufgebaut,
@@ -1604,7 +1645,7 @@
         // Permanente Tooltips: Tiefflieger immer; alle übrigen nur bei aktiviertem Labels-Toggle
         const ttHtml = '<span class="av-cs">' + cs + '</span> · '
                      + (kindLbl ? '<span class="av-u">' + kindLbl + '</span> · ' : '')
-                     + altM + '<span class="av-u">m</span> · '
+                     + altShown + '<span class="av-u"> m AGL</span> · '
                      + spdMs + '<span class="av-u"> m/s</span>';
         if (isLow) {
           m.bindTooltip(ttHtml,
@@ -1646,8 +1687,9 @@
     }
 
     function avCheckProx(planes) {
-      const altFt = a => (a.alt_baro == null || a.alt_baro === 'ground') ? 0 : +a.alt_baro;
-      const low = planes.filter(a => a.lat && a.lon && altFt(a) < AV.ALT_LIMIT_FT);
+      // Tiefflieger = Höhe über Grund (AGL) unter Schwellwert; Bodenverkehr/unbekannte
+      // Höhe (altAglFt === null) sind ausgeschlossen.
+      const low = planes.filter(a => { const g = altAglFt(a); return a.lat && a.lon && g != null && g < AV.ALT_LIMIT_FT; });
       avUpdateLowAlt(low);
       const near = low.filter(a => avDist(AV.lat, AV.lon, a.lat, a.lon) < AV.RADIUS_KM);
       if (near.length) {
@@ -1658,8 +1700,8 @@
         $('av-stat').textContent = _t('statAlarm')(near.length);
         $('av-banner').className = 'av-banner show';
         $('app-view').classList.add('av-alarming');
-        const altM = Math.round(altFt(a) * 0.3048);
-        $('av-banner').textContent = '⚠ ' + cs + ' — ' + d.toFixed(2) + ' km · ' + altM + ' m';
+        const altM = altAglM(a);
+        $('av-banner').textContent = '⚠ ' + cs + ' — ' + d.toFixed(2) + ' km · ' + (altM == null ? '?' : altM) + ' m AGL';
         if (!AV.alarmOn) {
           AV.alarmOn = true;
           avBeep();
@@ -1685,8 +1727,7 @@
       el.className = 'av-lowalt show';
       const rows = lowPlanes.map(a => {
         const cs = a.flight ? a.flight.trim() : (a.hex || '?');
-        const alt = (a.alt_baro == null || a.alt_baro === 'ground') ? 0 : +a.alt_baro;
-        const altM = Math.round(alt * 0.3048);
+        const altM = altAglM(a);
         const dist = avDist(AV.lat, AV.lon, a.lat, a.lon);
         const spd = (a.gs != null) ? (a.gs * 0.5144).toFixed(1) : '?';
         return '<div class="av-lowalt-row"><span>✈ ' + cs + '</span><span>' + altM + ' m</span><span>' + dist.toFixed(1) + ' km</span><span>' + spd + ' m/s</span></div>';
@@ -1787,6 +1828,7 @@
       avStartPoll();
       updateZonesOverlay();
       updateWeatherOverlay();
+      fetchGroundElevation(lat, lon);
       requestWakeLock();
       if (!AV.weatherInterval) AV.weatherInterval = setInterval(updateWeatherOverlay, AV.WEATHER_POLL_MS);
     }
@@ -1877,6 +1919,7 @@
           if (AV.posMarker) AV.posMarker.setLatLng([AV.lat, AV.lon]);
           updateZonesOverlay();
           updateWeatherOverlay();
+          fetchGroundElevation(AV.lat, AV.lon);
         });
       });
 
