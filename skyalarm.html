@@ -831,7 +831,7 @@
 
   <script>
     /* [J-VER] Versionsnummer — einzige Stelle */
-    const APP_VER = '0.36';
+    const APP_VER = '0.37';
     document.querySelectorAll('.l-ver').forEach(e => e.textContent = APP_VER);
 
     /* [J-I18N] Internationalisierung — DE/EN, alarm-spezifisch */
@@ -1227,8 +1227,10 @@
     async function updateWeatherOverlay() {
       if (AV.lat == null) return;
       const w = await fetchWeather(AV.lat, AV.lon);
-      AV.lastWeather = w;
-      renderStatusOverlay(w, AV.lastZones || []);
+      // Bei einem einzelnen fehlgeschlagenen Abruf den letzten guten Datensatz behalten,
+      // statt das Eis-/Nebel-/Wind-Overlay bis zum nächsten 10-min-Intervall zu leeren.
+      if (w) AV.lastWeather = w;
+      renderStatusOverlay(AV.lastWeather, AV.lastZones || []);
     }
 
     /* Geländehöhe am Pilotenstandort (MSL) — Basis für die AGL-Näherung im Alarm.
@@ -1717,9 +1719,13 @@
       const near = low.filter(a => avDist(AV.lat, AV.lon, a.lat, a.lon) < AV.RADIUS_KM);
       if (near.length) {
         AV.alarmMissCount = 0;                 // Hysterese-Zähler zurücksetzen
-        const a = near[0];
+        // Für Banner/Beep das NÄCHSTGELEGENE Target wählen, nicht das erste im Array.
+        let a = near[0], d = avDist(AV.lat, AV.lon, a.lat, a.lon);
+        for (const p of near) {
+          const pd = avDist(AV.lat, AV.lon, p.lat, p.lon);
+          if (pd < d) { a = p; d = pd; }
+        }
         const cs = a.flight ? a.flight.trim() : (a.hex || '?');
-        const d = avDist(AV.lat, AV.lon, a.lat, a.lon);
         $('av-stat').className = 'av-stat alarm';
         $('av-stat').textContent = _t('statAlarm')(near.length);
         $('av-banner').className = 'av-banner show';
