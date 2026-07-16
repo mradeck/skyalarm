@@ -109,6 +109,23 @@
     }
     .av-banner.show { display: block; }
 
+    /* Visueller Alarm-Kanal: pulsierender roter Rahmen. Redundanz zu Beep/Vibration,
+       insbesondere auf iOS, wo Vibration fehlt und Audio hardwareseitig stumm sein kann. */
+    #app-view.av-alarming::after {
+      content: '';
+      position: absolute; inset: 0;
+      pointer-events: none;
+      z-index: 1002;
+      animation: av-alarm-flash 1s ease-in-out infinite;
+    }
+    @keyframes av-alarm-flash {
+      0%, 100% { box-shadow: inset 0 0 0 0 rgba(255, 40, 40, 0); }
+      50%      { box-shadow: inset 0 0 44px 13px rgba(255, 40, 40, 0.85); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      #app-view.av-alarming::after { animation: none; box-shadow: inset 0 0 44px 13px rgba(255, 40, 40, 0.7); }
+    }
+
     .av-lowalt {
       position: absolute;
       bottom: 90px;
@@ -814,7 +831,7 @@
 
   <script>
     /* [J-VER] Versionsnummer — einzige Stelle */
-    const APP_VER = '0.32';
+    const APP_VER = '0.33';
     document.querySelectorAll('.l-ver').forEach(e => e.textContent = APP_VER);
 
     /* [J-I18N] Internationalisierung — DE/EN, alarm-spezifisch */
@@ -982,8 +999,8 @@
     const AV = {
       map: null, tileL: null, dipulL: null, acLayer: null, trailLayer: null, trails: {},
       radiusCirc: null, scanCirc: null, posMarker: null,
-      interval: null, beepInterval: null, weatherInterval: null,
-      lat: null, lon: null,
+      interval: null, beepInterval: null, weatherInterval: null, wakeLock: null,
+      lat: null, lon: null, groundElevM: null,
       lastZones: [], lastWeather: null,
       zonesOn: true, lightMode: false, alarmOn: false, allLabels: false, autoStart: false, styleIdx: 0,
       openPopupHex: null,
@@ -1640,6 +1657,7 @@
         $('av-stat').className = 'av-stat alarm';
         $('av-stat').textContent = _t('statAlarm')(near.length);
         $('av-banner').className = 'av-banner show';
+        $('app-view').classList.add('av-alarming');
         const altM = Math.round(altFt(a) * 0.3048);
         $('av-banner').textContent = '⚠ ' + cs + ' — ' + d.toFixed(2) + ' km · ' + altM + ' m';
         if (!AV.alarmOn) {
@@ -1657,6 +1675,7 @@
         $('av-stat').className = 'av-stat watch';
         $('av-stat').textContent = _t('statWatch');
         $('av-banner').className = 'av-banner';
+        $('app-view').classList.remove('av-alarming');
       }
     }
 
@@ -1712,6 +1731,20 @@
       if (_avAudioCtx.state === 'suspended') _avAudioCtx.resume();
       return _avAudioCtx;
     }
+    /* Audio-Freigabe: iOS/Safari startet einen außerhalb einer User-Geste erzeugten
+       AudioContext im Zustand 'suspended' und ignoriert resume() ohne Geste — der
+       timer-getriebene Alarm-Beep bliebe damit die gesamte Session stumm. unlockAudio()
+       MUSS aus einem Tap/Klick heraus laufen und stößt einen stummen Kick-Oszillator an,
+       der den Context zuverlässig in den Zustand 'running' bringt. */
+    function unlockAudio() {
+      try {
+        const ctx = _avCtx();
+        const o = ctx.createOscillator(), g = ctx.createGain();
+        g.gain.value = 0;                       // absolut stumm
+        o.connect(g); g.connect(ctx.destination);
+        o.start(); o.stop(ctx.currentTime + 0.02);
+      } catch (e) { }
+    }
     function avBeep() {
       try {
         const ctx = _avCtx();
@@ -1727,6 +1760,21 @@
       } catch (e) { }
     }
 
+    /* Screen Wake Lock: hält das Display an, damit das OS die Poll-Timer nicht
+       suspendiert und der Alarm auch bei abgedunkeltem Bildschirm weiterläuft.
+       Das Lock wird vom System bei Tab-Wechsel/Abdunkeln freigegeben und muss bei
+       Rückkehr (visibilitychange) neu angefordert werden. */
+    async function requestWakeLock() {
+      try {
+        if ('wakeLock' in navigator && document.visibilityState === 'visible') {
+          AV.wakeLock = await navigator.wakeLock.request('screen');
+        }
+      } catch (e) { /* z. B. nicht aktiv/sichtbar oder nicht unterstützt → ignorieren */ }
+    }
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible' && AV.lat != null) requestWakeLock();
+    });
+
     /* [J-START] Initial-Flow: GPS oder Standardposition */
     const DEFAULT_LAT = 48.137, DEFAULT_LON = 11.575; // München-Zentrum
 
@@ -1739,6 +1787,7 @@
       avStartPoll();
       updateZonesOverlay();
       updateWeatherOverlay();
+      requestWakeLock();
       if (!AV.weatherInterval) AV.weatherInterval = setInterval(updateWeatherOverlay, AV.WEATHER_POLL_MS);
     }
 
@@ -1786,6 +1835,19 @@
     /* [J-EVENTS] Event-Listener */
     document.addEventListener('DOMContentLoaded', () => {
       applyLang();
+
+      // Audio- und Wake-Lock-Freigabe bei der ersten Nutzergeste (iOS/Safari verlangt
+      // eine Geste, damit der Alarm-Beep hörbar ist). Einmalig, danach selbst entfernt.
+      const _avGesture = () => {
+        unlockAudio();
+        if (AV.lat != null) requestWakeLock();
+        window.removeEventListener('pointerdown', _avGesture);
+        window.removeEventListener('touchend', _avGesture);
+        window.removeEventListener('click', _avGesture);
+      };
+      window.addEventListener('pointerdown', _avGesture);
+      window.addEventListener('touchend', _avGesture);
+      window.addEventListener('click', _avGesture);
 
       $('btn-lang').addEventListener('click', () => {
         LANG = LANG === 'de' ? 'en' : 'de';
