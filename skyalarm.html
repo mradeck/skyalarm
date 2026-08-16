@@ -991,7 +991,7 @@
 
   <script>
     /* [J-VER] Versionsnummer — einzige Stelle */
-    const APP_VER = '0.44';
+    const APP_VER = '0.45';
     document.querySelectorAll('.l-ver').forEach(e => e.textContent = APP_VER);
 
     /* [J-I18N] Internationalisierung — DE/EN, alarm-spezifisch */
@@ -1222,7 +1222,7 @@
       openPopupHex: null,
       _polling: false, lastPlanes: null, alarmMissCount: 0, ALARM_HOLD: 3,
       RADIUS_KM: 2, POLL_MS: 2000, ALT_LIMIT_FT: 984, SCAN_KM: 18.52, TRAIL_SEC: 60,
-      RADIUS_OPTS: [2, 4, 6], radiusIdx: 0, radiusInfoTimer: null,
+      RADIUS_OPTS: [2, 4, 6], radiusIdx: 0, radiusInfoTimer: null, radiusIntroShown: false,
       WEATHER_POLL_MS: 600000, /* alle 10 min Wetter aktualisieren */
       STYLES: [
         { n: 'Dark', u: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', a: '© OpenStreetMap, © CARTO', s: 'abcd' },
@@ -2319,13 +2319,12 @@
     }
 
     function maybeShowRadiusIntro() {
-      const key = 'skyalarm-radius-intro-v1';
-      let firstOpen = true;
-      try {
-        firstOpen = localStorage.getItem(key) !== '1';
-        if (firstOpen) localStorage.setItem(key, '1');
-      } catch (_) { /* Ohne Storage erscheint die Hilfe pro Sitzung erneut. */ }
-      if (firstOpen) setTimeout(() => showRadiusInfo(true), 350);
+      // Einmal pro App-Start zeigen. Ein dauerhafter localStorage-Merker hatte
+      // die wichtige Range-/Reaktionszeit-Erklärung nach dem ersten Besuch für
+      // immer unterdrückt – auch nach Updates und bei späteren Einsätzen.
+      if (AV.radiusIntroShown) return;
+      AV.radiusIntroShown = true;
+      setTimeout(() => showRadiusInfo(true), 350);
     }
 
     window.addEventListener('resize', () => {

@@ -41,7 +41,7 @@ Bewusst **nicht enthalten** (im Gegensatz zu SkyCheck):
 **Datei:** `skyalarm.html` (Single-File HTML/JS/CSS, ~1800 Zeilen) plus Netlify-Function `netlify/functions/ogn.js` (OGN-Proxy, ~170 Zeilen)
 **Live:** https://skyalarm.netlify.app/
 **Repo:** https://github.com/mradeck/skyalarm (Default-Branch: `main`)
-**Aktuell:** v0.44 — Die Hell-/Dunkel-Auswahl wird gespeichert und vor dem Kartenaufbau wiederhergestellt, damit Interface, Basiskarte und Info-Modal auch nach Reload oder neuem Versionslink synchron bleiben.
+**Aktuell:** v0.45 — Die Detektionsradius-Einführung erscheint einmal bei jedem App-Start statt nur ein einziges Mal pro Browser.
 
 ---
 
@@ -154,6 +154,7 @@ Für Recherche, Visualisierung, Computer-Use; Code-Änderungen vorzugsweise via 
 
 | Version | Änderungen |
 |---|---|
+| v0.45 | **Detektionsradius-Hinweis pro App-Start wiederhergestellt.** Der dauerhafte `localStorage`-Merker wurde durch einen In-Memory-Guard ersetzt. Reaktionszeiten und der blinkende „ändern“-Hinweis erscheinen damit bei jedem neuen App-Start einmal, werden innerhalb derselben laufenden Ansicht aber nicht doppelt ausgelöst. |
 | v0.44 | **Theme-Zustand dauerhaft synchronisiert.** Die Auswahl Hell/Dunkel wird in `localStorage` gespeichert und beim Start vor dem Kartenaufbau wiederhergestellt. Damit fallen Interface, OSM/CARTO-Basiskarte und Info-Modal nach Reload oder Öffnen eines neuen Versionslinks nicht mehr auf unterschiedliche beziehungsweise unerwartete Zustände zurück. Für eindeutige Vorschauen kann das Theme zusätzlich mit `?theme=light` oder `?theme=dark` vorgegeben werden. |
 | v0.43 | **Info-Modal an Hellmodus angepasst.** Da `#info-modal` außerhalb von `#app-view` liegt, griff die bisherige `#app-view.av-light`-Kaskade dort nicht. `setInterfaceTheme()` synchronisiert nun eine eigene `av-light`-Klasse am Modal. Modalfläche, Rahmen, Schatten, Fließtext, Schließen-Button, Links und Quellenchips verwenden ein kontrastreiches helles Farbschema; der Kartenhintergrund wird im Hellmodus weicher und leicht bläulich abgedunkelt. |
 | v0.42 | **Vollständige Karten-Attribution.** Die verkürzten Basiskartenangaben wurden an SkyCheck angeglichen (`© OpenStreetMap`, `© CARTO`, `© Esri`). Das DiPUL-WMS trägt nun `DiPUL / DFS` sowie verlinkte Hinweise auf den dipul-Download und `CC BY-ND 4.0` bei. Die Leaflet-Attribution ist unten rechts auf schmalen Viewports begrenzt, kleiner gesetzt und rechtsbündig, damit sie kontrolliert umbricht statt überzulaufen. |
