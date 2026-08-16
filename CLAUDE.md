@@ -41,7 +41,7 @@ Bewusst **nicht enthalten** (im Gegensatz zu SkyCheck):
 **Datei:** `skyalarm.html` (Single-File HTML/JS/CSS, ~1800 Zeilen) plus Netlify-Function `netlify/functions/ogn.js` (OGN-Proxy, ~170 Zeilen)
 **Live:** https://skyalarm.netlify.app/
 **Repo:** https://github.com/mradeck/skyalarm (Default-Branch: `main`)
-**Aktuell:** v0.40 — Hellmodus und OSM sowie Dunkelmodus und CARTO Dark bilden gekoppelte Tages-/Nachtprofile. Der Kompaktstatus zeigt unter der Geländehöhe die standortbezogene Maximalhöhe: 120 m AGL außerhalb der CTR-D-Zonen, innerhalb der Zonen 1–4 die punktgenaue CTR-Höhenlogik beziehungsweise den Freigabehinweis.
+**Aktuell:** v0.41 — Leaflet-Zoom liegt frei unter der Kopfzeile; aktive Kartenbuttons sind auch im Hellmodus eindeutig. Eine einmalige Radius-Einführung zeigt Reaktionszeiten und einen blinkenden Hinweis auf den Schalter. Beim Wechsel zwischen 2/4/6 km passt `fitBounds` den Kartenausschnitt an den vollständigen Detektionskreis an.
 
 ---
 
@@ -154,6 +154,7 @@ Für Recherche, Visualisierung, Computer-Use; Code-Änderungen vorzugsweise via 
 
 | Version | Änderungen |
 |---|---|
+| v0.41 | **Kartenbedienung und Radius-Onboarding.** Die Leaflet-Zoomsteuerung beginnt unterhalb der Kopfzeile und bleibt vollständig anklickbar. Aktive Steuerbuttons erhalten im Hellmodus eine gefüllte Cyan-Darstellung mit Kontrastrahmen; auch der aktive Hellmodus selbst wird markiert. Beim ersten App-Start pro Browser erscheint das Reaktionszeitfenster sieben Sekunden lang zusammen mit einem blinkenden, direkt auf den Radius-Button ausgerichteten „ändern“-Hinweis. Initialer Radius und jeder 2/4/6-km-Wechsel verwenden `fitBounds`, sodass der vollständige Detektionskreis im Kartenausschnitt liegt. |
 | v0.40 | **Theme/Kartenprofil und Standort-Maximalhöhe.** Der Hellmodus schaltet die Basiskarte automatisch auf OSM, der Dunkelmodus auf CARTO Dark; der separate Kartenstil-Schalter bleibt danach manuell nutzbar. Im Kompaktstatus steht direkt unter der Geländehöhe die maximale Flughöhe am Standort: außerhalb einer CTR-D 120 m AGL, in Zonen 2–4 der konservativ berechnete Wert und in Zone 1 der Hinweis auf die individuelle FVK-Freigabe. Generische oder nicht berechenbare CTR-Treffer werden ausdrücklich nicht als 120 m dargestellt. |
 | v0.39 | **CTR-D-Höhenlogik aus SkyCheck übernommen.** Separate 5-m-GetFeatureInfo-Abfrage ersetzt breite CTR-Treffer an Zonengrenzen; `type_code_detail=U_CONTROL_ZONE_1…4` wird differenziert. Zonen 2–4 berechnen die konservativ abgerundete Maximalhöhe aus DiPUL-MSL-Grenze und Open-Meteo-Gelände, Zone 1 bleibt individuelle FVK-Freigabe. 25 Geländestützpunkte im 100-m-Kreis liefern geringste/größte Maximalflughöhe und Geländespanne. Das Status-Overlay zeigt CTR-Zone/Maximalhöhe, Gelände-MSL und einen positionsgenauen DiPUL-Link. |
 | v0.10 | Initial-Release: Extraktion aus SkyCheck v0.67 (Alarm-View 1:1), DE/EN-I18N, GPS-Splash, PWA-Hooks, Info-Modal |

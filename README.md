@@ -33,6 +33,7 @@ Abgespalten aus dem Schwesterprojekt [SkyCheck](https://skycheck-de.netlify.app/
 
 - **Karten-Stile**: Dark / OSM / Satellit / Hell
 - **Hell-/Dunkel-Modus** für Tag- und Nachteinsatz, automatisch gekoppelt mit OSM beziehungsweise CARTO Dark; der Kartenstil bleibt anschließend manuell überschreibbar
+- **Radius-Einführung und automatischer Kartenausschnitt**: Beim ersten Start erscheinen Reaktionszeiten plus blinkender Hinweis auf den Radius-Schalter; 2/4/6-km-Wechsel zoomen den vollständigen Detektionskreis ins Bild
 - **Doppelklick-Korrektur** des Alarmzentrums
 - **Trail-Visualisierung** der letzten 60 Sekunden je Flugzeug
 - **DE/EN-I18N**, persistiert in `localStorage`
@@ -90,7 +91,7 @@ Erstmaliges Setup (Referenz, falls eine Spiegelinstanz aufgesetzt werden soll):
 
 ## Versionierung
 
-Die Versionsnummer steht ausschließlich in `const APP_VER` in `skyalarm.html` (Anker `[J-VER]`) und wird per DOM-Updater an Header (`<sup class="l-ver">`) und Info-Modal (`<span class="l-ver">`) propagiert. Aktueller Stand: **v0.40**.
+Die Versionsnummer steht ausschließlich in `const APP_VER` in `skyalarm.html` (Anker `[J-VER]`) und wird per DOM-Updater an Header (`<sup class="l-ver">`) und Info-Modal (`<span class="l-ver">`) propagiert. Aktueller Stand: **v0.41**.
 
 Die vollständige Versions-Historie ist in `CLAUDE.md` dokumentiert.
 

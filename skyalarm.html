@@ -35,6 +35,10 @@
       inset: 0;
     }
 
+    /* Leaflet setzt die Zoomsteuerung standardmäßig 10 px unter den Kartenrand.
+       Dort liegt jedoch die SkyAlarm-Kopfzeile; deshalb unterhalb davon starten. */
+    #alarm-map .leaflet-top.leaflet-left { top: 46px; }
+
     .av-topbar {
       position: absolute;
       top: 0; left: 0; right: 0;
@@ -195,6 +199,17 @@
       border-color: rgba(0, 0, 0, 0.18);
       color: #222;
     }
+    #app-view.av-light .av-btn.on {
+      background: #008eaf;
+      border-color: #006f89;
+      color: #fff;
+      box-shadow: 0 0 0 2px rgba(255,255,255,0.9), 0 0 0 4px rgba(0,142,175,0.34);
+    }
+    .av-btn:focus-visible {
+      outline: 2px solid #fff;
+      outline-offset: 2px;
+    }
+    #app-view.av-light .av-btn:focus-visible { outline-color: #006f89; }
     #app-view.av-light .av-loc { color: #333; }
     #app-view.av-light .av-stat.watch {
       background: rgba(0, 160, 40, 0.15);
@@ -308,6 +323,48 @@
       background: rgba(255,255,255,0.96);
       color: #222;
       box-shadow: 0 6px 24px rgba(0,0,0,0.18);
+    }
+
+    /* Einmalige Einführung: kompakter Hinweis zeigt direkt auf den Radius-Button. */
+    .av-radius-hint {
+      position: absolute;
+      z-index: 1101;
+      right: 52px;
+      top: 50%;
+      transform: translateY(-50%) translateX(6px);
+      padding: 0.3rem 0.55rem;
+      border: 1px solid var(--accent);
+      border-radius: 7px;
+      background: rgba(10,20,40,0.94);
+      color: #fff;
+      font-size: 0.74rem;
+      font-weight: 800;
+      letter-spacing: 0.02em;
+      white-space: nowrap;
+      pointer-events: none;
+      opacity: 0;
+    }
+    .av-radius-hint.show {
+      opacity: 1;
+      transform: translateY(-50%) translateX(0);
+      animation: radius-hint-pulse 0.85s ease-in-out infinite;
+    }
+    .av-radius-hint .hint-arrow {
+      color: var(--accent);
+      margin-left: 0.25rem;
+      font-size: 1rem;
+    }
+    #app-view.av-light .av-radius-hint {
+      background: rgba(255,255,255,0.97);
+      color: #17324d;
+      box-shadow: 0 4px 16px rgba(35,62,92,0.2);
+    }
+    @keyframes radius-hint-pulse {
+      0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(0,180,216,0.42); }
+      50% { opacity: 0.48; box-shadow: 0 0 0 6px rgba(0,180,216,0); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .av-radius-hint.show { animation: none; }
     }
 
     /* === TOP-RIGHT-STACK: Kompakt-Overlay + Detail-Overlay ===
@@ -849,6 +906,7 @@
       <button class="av-btn" id="av-info" data-i18n-title="ctrlInfo" title="Info">ⓘ</button>
     </div>
     <div id="av-radius-info" class="av-radius-info"></div>
+    <div id="av-radius-hint" class="av-radius-hint"><span data-i18n="radiusChange">ändern</span><span class="hint-arrow" aria-hidden="true">→</span></div>
     <div class="pwa-banner" id="pwa-banner">
       <span>📲 <span data-i18n="pwaText">SkyAlarm als App installieren</span></span>
       <div class="pwa-actions">
@@ -905,7 +963,7 @@
 
   <script>
     /* [J-VER] Versionsnummer — einzige Stelle */
-    const APP_VER = '0.40';
+    const APP_VER = '0.41';
     document.querySelectorAll('.l-ver').forEach(e => e.textContent = APP_VER);
 
     /* [J-I18N] Internationalisierung — DE/EN, alarm-spezifisch */
@@ -925,6 +983,7 @@
         riHdr: 'Detektionsradius',
         riReact: 'Reaktionszeit',
         riAt: 'bei',
+        radiusChange: 'ändern',
         langTitle: 'Sprache wechseln',
         lowAltHdr: '⚠ Tiefflieger (<300 m)',
         splashIntro: 'Echtzeit-Tiefflieger-Alarm und Geozonen-Karte. Für die volle Funktion wird der aktuelle Standort benötigt.',
@@ -1003,6 +1062,7 @@
         riHdr: 'Detection radius',
         riReact: 'Reaction time',
         riAt: 'at',
+        radiusChange: 'change',
         langTitle: 'Switch language',
         lowAltHdr: '⚠ Low-altitude aircraft (<300 m)',
         splashIntro: 'Real-time low-altitude aircraft alert and airspace map. Full functionality requires your current location.',
@@ -1917,6 +1977,7 @@
       AV.lightMode = Boolean(light);
       $('app-view').classList.toggle('av-light', AV.lightMode);
       $('av-theme').textContent = AV.lightMode ? '🌙' : '☀';
+      $('av-theme').classList.toggle('on', AV.lightMode);
       // Theme und Basiskarte bilden ein gemeinsames Tages-/Nachtprofil. Der
       // separate Kartenstil-Schalter kann danach weiterhin manuell überschreiben.
       setMapStyle(AV.lightMode ? 1 : 0); // OSM : CARTO Dark
@@ -2150,7 +2211,10 @@
       const opts = AV.RADIUS_OPTS;
       AV.radiusIdx = ((idx % opts.length) + opts.length) % opts.length;
       AV.RADIUS_KM = opts[AV.radiusIdx];
-      if (AV.radiusCirc) AV.radiusCirc.setRadius(AV.RADIUS_KM * 1000);
+      if (AV.radiusCirc) {
+        AV.radiusCirc.setRadius(AV.RADIUS_KM * 1000);
+        fitDetectionRadius();
+      }
       showRadiusInfo();
       // Proximity-Logik sofort mit neuem Radius nachziehen — aus dem Cache re-rendern,
       // damit der In-Flight-Guard die sofortige Aktualisierung nicht verschluckt.
@@ -2158,9 +2222,29 @@
       else avPoll();
     }
 
-    function showRadiusInfo() {
+    function fitDetectionRadius(animate = true) {
+      if (!AV.map || !AV.radiusCirc) return;
+      const padding = window.innerWidth <= 600 ? [28, 28] : [52, 52];
+      AV.map.fitBounds(AV.radiusCirc.getBounds(), {
+        padding,
+        animate,
+        duration: animate ? 0.55 : 0,
+      });
+    }
+
+    function positionRadiusHint() {
+      const hint = $('av-radius-hint');
+      const button = $('av-radius');
+      if (!hint || !button) return;
+      const rect = button.getBoundingClientRect();
+      hint.style.top = `${rect.top + rect.height / 2}px`;
+      hint.style.right = `${window.innerWidth - rect.left + 10}px`;
+    }
+
+    function showRadiusInfo(showHint = false) {
       const el = $('av-radius-info');
       if (!el) return;
+      const hint = $('av-radius-hint');
       const km = AV.RADIUS_KM;
       const m = km * 1000;
       // Reine Sekunden-Anzeige; Zahl und Einheit per Non-breaking Space ( )
@@ -2173,9 +2257,30 @@
         + '<div class="ri-row"><span>' + _t('riReact') + ' ' + _t('riAt') + ' 30 m/s (≈108 km/h)</span><span>' + t30 + '</span></div>'
         + '<div class="ri-row"><span>' + _t('riReact') + ' ' + _t('riAt') + ' 60 m/s (≈216 km/h)</span><span>' + t60 + '</span></div>';
       el.classList.add('show');
+      if (hint) {
+        hint.classList.toggle('show', showHint);
+        if (showHint) positionRadiusHint();
+      }
       if (AV.radiusInfoTimer) clearTimeout(AV.radiusInfoTimer);
-      AV.radiusInfoTimer = setTimeout(() => el.classList.remove('show'), 7000);
+      AV.radiusInfoTimer = setTimeout(() => {
+        el.classList.remove('show');
+        if (hint) hint.classList.remove('show');
+      }, 7000);
     }
+
+    function maybeShowRadiusIntro() {
+      const key = 'skyalarm-radius-intro-v1';
+      let firstOpen = true;
+      try {
+        firstOpen = localStorage.getItem(key) !== '1';
+        if (firstOpen) localStorage.setItem(key, '1');
+      } catch (_) { /* Ohne Storage erscheint die Hilfe pro Sitzung erneut. */ }
+      if (firstOpen) setTimeout(() => showRadiusInfo(true), 350);
+    }
+
+    window.addEventListener('resize', () => {
+      if ($('av-radius-hint')?.classList.contains('show')) positionRadiusHint();
+    });
 
     /* [J-AUDIO] Web-Audio-Beep */
     let _avAudioCtx = null;
@@ -2238,6 +2343,8 @@
       $('splash').classList.add('hidden');
       if (!AV.map) avInitMap();
       else { AV.map.setView([AV.lat, AV.lon], 13); setTimeout(() => AV.map.invalidateSize(), 80); }
+      setTimeout(() => fitDetectionRadius(false), 120);
+      maybeShowRadiusIntro();
       avStartPoll();
       updateZonesOverlay();
       updateWeatherOverlay();
