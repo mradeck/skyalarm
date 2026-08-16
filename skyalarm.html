@@ -421,6 +421,23 @@
       font-weight: 500;
       margin-left: 0.4rem;
     }
+    .ms-location {
+      margin-top: 0.35rem;
+      padding-top: 0.35rem;
+      border-top: 1px solid rgba(255,255,255,0.1);
+      color: var(--text2);
+      display: flex;
+      flex-direction: column;
+      gap: 0.05rem;
+    }
+    .ms-location a {
+      color: var(--accent);
+      text-decoration: none;
+      pointer-events: auto;
+    }
+    .ms-flight-limit strong { color: var(--accent); }
+    .ms-flight-limit.blocked strong { color: #ef476f; }
+    .ms-flight-limit.unknown strong { color: #f59e0b; }
 
     /* Light-Mode Status */
     #app-view.av-light .status-overlay {
@@ -437,6 +454,10 @@
     #app-view.av-light .ms-icing .ok { color: #198a3a; }
     #app-view.av-light .ms-icing .warn { color: #b87000; }
     #app-view.av-light .ms-icing .crit { color: #b00; }
+    #app-view.av-light .ms-location { color: #444; border-top-color: rgba(0,0,0,0.12); }
+    #app-view.av-light .ms-flight-limit strong { color: #007f9c; }
+    #app-view.av-light .ms-flight-limit.blocked strong { color: #c92f56; }
+    #app-view.av-light .ms-flight-limit.unknown strong { color: #a96700; }
 
     /* === ZONES OVERLAY (Detailliste, ausklappbar, unter dem Kompakt-Overlay) === */
     .zones-overlay {
@@ -532,6 +553,54 @@
       padding: 0.45rem 0.55rem;
       margin-top: 0.35rem;
     }
+    .ctr-height-box {
+      margin-top: 0.45rem;
+      padding: 0.55rem 0.6rem;
+      border: 1px solid rgba(0,180,216,0.42);
+      border-radius: 7px;
+      background: rgba(0,180,216,0.09);
+    }
+    .ctr-height-box.blocked {
+      border-color: rgba(239,71,111,0.5);
+      background: rgba(239,71,111,0.09);
+    }
+    .ctr-height-value {
+      margin-top: 0.12rem;
+      color: var(--accent);
+      font-size: 1rem;
+      font-weight: 800;
+    }
+    .ctr-height-box.blocked .ctr-height-value { color: #ef476f; }
+    .ctr-height-note {
+      margin-top: 0.35rem;
+      color: var(--text2);
+      font-size: 0.65rem;
+      line-height: 1.4;
+    }
+    .ctr-range {
+      margin-top: 0.5rem;
+      padding-top: 0.45rem;
+      border-top: 1px solid rgba(0,180,216,0.25);
+    }
+    .ctr-range-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0,1fr));
+      gap: 0.35rem;
+      margin-top: 0.3rem;
+    }
+    .ctr-range-item {
+      min-width: 0;
+      padding: 0.35rem;
+      border-radius: 5px;
+      background: rgba(255,255,255,0.04);
+    }
+    .ctr-range-value {
+      display: block;
+      margin-top: 0.12rem;
+      color: var(--text);
+      font-weight: 750;
+      white-space: nowrap;
+    }
 
     /* Light-Mode */
     #app-view.av-light .zones-overlay {
@@ -549,6 +618,10 @@
     }
     #app-view.av-light .zones-overlay-body .z-lbl { color: #666; }
     #app-view.av-light .zones-overlay-chev { color: #555; }
+    #app-view.av-light .ctr-height-box { background: rgba(0,180,216,0.08); }
+    #app-view.av-light .ctr-height-box.blocked { background: rgba(239,71,111,0.08); }
+    #app-view.av-light .ctr-range-item { background: rgba(0,0,0,0.04); }
+    #app-view.av-light .ctr-range-value { color: #222; }
 
     /* === SPLASH === */
     #splash {
@@ -749,6 +822,7 @@
           <div class="ms-icing" id="ms-icing"></div>
           <div class="ms-ice hidden" id="ms-ice"></div>
           <div class="ms-fog hidden" id="ms-fog"></div>
+          <div class="ms-location" id="ms-location"></div>
         </div>
       </div>
       <div class="zones-overlay" id="zones-overlay">
@@ -831,7 +905,7 @@
 
   <script>
     /* [J-VER] Versionsnummer — einzige Stelle */
-    const APP_VER = '0.38';
+    const APP_VER = '0.40';
     document.querySelectorAll('.l-ver').forEach(e => e.textContent = APP_VER);
 
     /* [J-I18N] Internationalisierung — DE/EN, alarm-spezifisch */
@@ -873,6 +947,26 @@
         lblLower: 'Untere Grenze',
         lblUpper: 'Obere Grenze',
         lblLegal: 'Rechtshinweis',
+        ctrZoneLabel: n => `CTR Zone ${n}`,
+        ctrMaxAgl: 'Maximale Flughöhe',
+        ctrIndividual: 'Individuelle FVK-Freigabe erforderlich',
+        ctrGeneral: 'Allgemeine FVK-Freigabe',
+        ctrGround: 'Geländehöhe am Standort',
+        ctrAirportRef: 'Flugplatzhöhe (Bezugshöhe)',
+        ctrMaxMsl: 'Maximale UAS-Höhe',
+        ctrCalculation: 'Rechenweg',
+        ctrHeightUnknown: n => `CTR Zone ${n}: Maximalhöhe nicht zuverlässig berechenbar`,
+        ctrElevationNote: 'Geländehöhe automatisch ermittelt (Open-Meteo, Näherungswert). Bindend sind DiPUL und die jeweilige NfL.',
+        ctrNoElevation: 'Geländehöhe nicht verfügbar – keine zuverlässige Höhenberechnung möglich.',
+        ctrTerrainRangeTitle: '100-m-Geländekorridor',
+        ctrMinMaxAgl: 'Geringste Maximalflughöhe',
+        ctrMaxMaxAgl: 'Größte Maximalflughöhe',
+        ctrTerrainRange: 'Geländespanne',
+        ctrTerrainRangeNote: n => `Aus ${n} Geländestützpunkten im 100-m-Kreis; gilt für die am Mittelpunkt erkannte CTR-Zone.`,
+        msGroundMsl: 'Geländehöhe',
+        msMaxFlight: 'Maximale Flughöhe',
+        msFlightUnknown: 'CTR-Höhe nicht berechenbar',
+        msOpenDipul: 'Punkt in DiPUL öffnen',
         msNoRestr: '✓ Keine Einschränkungen', msGusts: 'Böen',
         msAirport: 'Flughafen', msAerodrome: 'Flugplatz', msCTR: 'Kontrollzone',
         msProhibited: 'Flugverbot', msTempRestr: 'Temp. Einschränkung',
@@ -931,6 +1025,26 @@
         lblLower: 'Lower limit',
         lblUpper: 'Upper limit',
         lblLegal: 'Legal reference',
+        ctrZoneLabel: n => `CTR zone ${n}`,
+        ctrMaxAgl: 'Maximum flight height',
+        ctrIndividual: 'Individual ATC clearance required',
+        ctrGeneral: 'General ATC clearance',
+        ctrGround: 'Terrain elevation at location',
+        ctrAirportRef: 'Aerodrome elevation (reference)',
+        ctrMaxMsl: 'Maximum UAS altitude',
+        ctrCalculation: 'Calculation',
+        ctrHeightUnknown: n => `CTR zone ${n}: maximum height cannot be calculated reliably`,
+        ctrElevationNote: 'Terrain elevation is determined automatically (Open-Meteo, approximate). DiPUL and the applicable NfL remain authoritative.',
+        ctrNoElevation: 'Terrain elevation unavailable – no reliable height calculation is possible.',
+        ctrTerrainRangeTitle: '100 m terrain corridor',
+        ctrMinMaxAgl: 'Lowest maximum flight height',
+        ctrMaxMaxAgl: 'Highest maximum flight height',
+        ctrTerrainRange: 'Terrain elevation range',
+        ctrTerrainRangeNote: n => `Based on ${n} terrain samples within a 100 m circle; applies to the CTR zone identified at the centre.`,
+        msGroundMsl: 'Terrain elevation',
+        msMaxFlight: 'Maximum flight height',
+        msFlightUnknown: 'CTR height cannot be calculated',
+        msOpenDipul: 'Open point in DiPUL',
         msNoRestr: '✓ No restrictions', msGusts: 'Gusts',
         msAirport: 'Airport', msAerodrome: 'Airfield', msCTR: 'Control Zone',
         msProhibited: 'No-fly Zone', msTempRestr: 'Temp. Restriction',
@@ -1039,6 +1153,20 @@
     // (untypisch) mit HTTP 200 ausgeliefert wird. Erkennung daher über den Body.
     function isServiceException(html) { return /ServiceException/i.test(html); }
 
+    const FT_TO_M = 0.3048;
+    function altitudeToMetres(value, unit) {
+      const n = Number(value);
+      if (!Number.isFinite(n)) return null;
+      if (String(unit || '').toLowerCase() === 'ft') return n * FT_TO_M;
+      if (String(unit || '').toLowerCase() === 'm') return n;
+      return null;
+    }
+
+    function isCtrZone(zone) {
+      const type = `${zone?.type || ''} ${zone?.typeDetail || ''}`.toUpperCase();
+      return Boolean(zone?.isCtr || type.includes('CONTROL_ZONE') || type.includes('KONTROLLZONE') || type.trim() === 'CTR');
+    }
+
     function parseZoneHtml(html) {
       const doc = new DOMParser().parseFromString(html, 'text/html');
       const tables = doc.querySelectorAll('table.featureInfo');
@@ -1051,14 +1179,23 @@
           if (cells.length !== headers.length) continue;
           const f = {};
           headers.forEach((h, idx) => f[h] = cells[idx].textContent.trim());
-          const rawName = f.name || f.bezeichnung || '';
-          const type = f.type_code || f.geozone_art || 'Spezifische Geozone';
+          const rawName = f.name || f.generated_name_de || f.bezeichnung || '';
+          const rawType = f.type_code || f.geozone_art || 'Spezifische Geozone';
+          const typeDetail = f.type_code_detail || '';
+          const type = typeDetail || rawType;
           const name = rawName || type;
           const extRef = f.external_reference || f.identifikation || '';
-          let lower = f.lower_limit_altitude || f.untere_grenze || '0.0';
+          const zoneMatch = /^U_CONTROL_ZONE_([1-4])$/i.exec(typeDetail);
+          const zoneNum = zoneMatch ? Number(zoneMatch[1]) : null;
+          const isCtr = rawType.toUpperCase() === 'KONTROLLZONE' || typeDetail.toUpperCase() === 'CTR' || Boolean(zoneMatch);
+          const lowerRaw = f.lower_limit_altitude || f.untere_grenze || '0.0';
           let lowerRef = f.lower_limit_alt_ref || 'AGL';
           let lowerUnit = f.lower_limit_unit || 'm';
-          if (lower === '0.0' && lowerRef === 'AGL') lower = 'GND';
+          const lowerMslM = String(lowerRef).toUpperCase() === 'MSL'
+            ? altitudeToMetres(lowerRaw, lowerUnit)
+            : null;
+          let lower = lowerRaw;
+          if (Number(lower) === 0 && String(lowerRef).toUpperCase() === 'AGL') lower = 'GND';
           else lower = `${lower} ${lowerUnit} ${lowerRef}`.trim();
           let upper = f.upper_limit_altitude || f.obere_grenze || '';
           let upperRef = f.upper_limit_alt_ref || '';
@@ -1068,8 +1205,11 @@
           else upper = '—';
           const legal = f.legal_ref || f.rechtliche_grundlage || '—';
           params.push({
-            name: name + (rawName && extRef && extRef !== 'null' ? ` (${extRef})` : ''),
-            type, lower, upper, legal, color: zoneColor(type)
+            fid: f.fid || '',
+            name: name + (!isCtr && rawName && extRef && extRef !== 'null' ? ` (${extRef})` : ''),
+            type, typeDetail, rawType, zoneNum, isCtr,
+            lower, lowerRaw: Number(lowerRaw), lowerRef, lowerUnit, lowerMslM,
+            upper, legal, color: zoneColor(type)
           });
         }
       });
@@ -1109,17 +1249,101 @@
     }
 
     async function fetchZones(lat, lon, radiusM = 100) {
-      const δ = Math.max(0.001134, radiusM * 101 / (4 * 111320));
-      const bbox = `${lat - δ},${lon - δ},${lat + δ},${lon + δ}`;
+      const bboxForRadius = queryRadiusM => {
+        const delta = Math.max(0.001134, queryRadiusM * 101 / (4 * 111320));
+        return `${lat - delta},${lon - delta},${lat + delta},${lon + delta}`;
+      };
+      const bbox = bboxForRadius(radiusM);
       const activeL = getActiveDipulLayers();
+      const exactCtrPromise = (async () => {
+        try {
+          const r = await fetch(buildGfiUrl('kontrollzonen', bboxForRadius(5)));
+          if (!r.ok) return null;
+          const html = await r.text();
+          if (isServiceException(html)) return null;
+          return parseZoneHtml(html).filter(isCtrZone).map(z => ({ ...z, ctrExact: true }));
+        } catch { return null; }
+      })();
+      let params = [];
       try {
         const r = await fetch(buildGfiUrl(activeL, bbox));
-        if (!r.ok) return [];
-        const html = await r.text();
-        // Kombinierte Abfrage gescheitert: einzelnen defekten Layer per Recovery isolieren.
-        if (isServiceException(html)) return await fetchZonesPerLayer(activeL, bbox);
-        return parseZoneHtml(html);
-      } catch (e) { return []; }
+        if (r.ok) {
+          const html = await r.text();
+          params = isServiceException(html)
+            ? await fetchZonesPerLayer(activeL, bbox)
+            : parseZoneHtml(html);
+        }
+      } catch (e) { /* einzelne CTR-Abfrage kann dennoch erfolgreich sein */ }
+
+      const exactCtr = await exactCtrPromise;
+      if (exactCtr) params = params.filter(z => !isCtrZone(z)).concat(exactCtr);
+      else params = params.map(z => isCtrZone(z) ? { ...z, ctrExact: false } : z);
+
+      const seen = new Set();
+      return params.filter(z => {
+        const key = z.fid || `${z.name}|${z.type}|${z.lower}|${z.upper}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      }).sort((a, b) => Number(isCtrZone(b)) - Number(isCtrZone(a)));
+    }
+
+    function computeCtrFlightInfo(zone, groundMslM) {
+      const n = Number(zone?.zoneNum);
+      if (![1, 2, 3, 4].includes(n)) return null;
+      if (n === 1) return { zoneNum: 1, requiresIndividual: true, available: true };
+      if (!zone.ctrExact || !Number.isFinite(groundMslM) || !Number.isFinite(zone.lowerMslM)) {
+        return { zoneNum: n, requiresIndividual: false, available: false };
+      }
+      const referenceAglM = n === 2 ? 25 : n === 3 ? 45 : 100;
+      const airportElevationMslM = zone.lowerMslM - referenceAglM;
+      const mslHeadroomM = zone.lowerMslM - groundMslM;
+      const rawAglM = n === 4
+        ? Math.min(100, Math.max(50, mslHeadroomM))
+        : Math.min(referenceAglM, mslHeadroomM);
+      const maxAglM = Math.max(0, Math.floor(rawAglM + 1e-9));
+      const maxMslM = Math.floor(groundMslM + maxAglM + 1e-9);
+      const lowerLimitRounded = Math.round(zone.lowerMslM);
+      const groundRounded = Math.round(groundMslM);
+      const calculation = n === 4
+        ? `min(100 m, max(50 m, ${lowerLimitRounded} m − ${groundRounded} m)) = ${maxAglM} m AGL`
+        : `min(${referenceAglM} m, ${lowerLimitRounded} m − ${groundRounded} m) = ${maxAglM} m AGL`;
+      return {
+        zoneNum: n,
+        requiresIndividual: maxAglM <= 0,
+        available: true,
+        maxAglM,
+        maxMslM,
+        groundMslM: groundRounded,
+        airportElevationMslM: Math.round(airportElevationMslM),
+        referenceLimitMslM: lowerLimitRounded,
+        calculation,
+      };
+    }
+
+    function computeCtrTerrainRange(zone, terrainProfile) {
+      if (![2, 3, 4].includes(Number(zone?.zoneNum)) || !terrainProfile?.samples?.length) return null;
+      const values = terrainProfile.samples
+        .map(sample => ({
+          elevationMslM: Number(sample.elevationMslM),
+          flight: computeCtrFlightInfo(zone, Number(sample.elevationMslM)),
+        }))
+        .filter(sample => Number.isFinite(sample.elevationMslM) && sample.flight?.available);
+      if (!values.length) return null;
+      return {
+        radiusM: terrainProfile.radiusM,
+        sampleCount: values.length,
+        minMaxAglM: Math.min(...values.map(sample => sample.flight.maxAglM)),
+        maxMaxAglM: Math.max(...values.map(sample => sample.flight.maxAglM)),
+        minTerrainMslM: Math.round(Math.min(...values.map(sample => sample.elevationMslM))),
+        maxTerrainMslM: Math.round(Math.max(...values.map(sample => sample.elevationMslM))),
+      };
+    }
+
+    function applyCtrFlightInfo(zones, groundMslM, terrainProfile) {
+      return (zones || []).map(z => isCtrZone(z)
+        ? { ...z, ctrFlight: computeCtrFlightInfo(z, groundMslM), ctrTerrainRange: computeCtrTerrainRange(z, terrainProfile) }
+        : z);
     }
 
     function zoneColor(t = '') {
@@ -1144,6 +1368,43 @@
       return base;
     }
 
+    function ctrHeightHtml(z) {
+      if (!isCtrZone(z) || !z.zoneNum) return '';
+      const f = z.ctrFlight;
+      const range = z.ctrTerrainRange;
+      const rangeHtml = range ? `<div class="ctr-range">
+        <div class="z-lbl">${_t('ctrTerrainRangeTitle')}</div>
+        <div class="ctr-range-grid">
+          <div class="ctr-range-item"><span class="z-lbl">${_t('ctrMinMaxAgl')}</span><span class="ctr-range-value">${range.minMaxAglM} m AGL</span></div>
+          <div class="ctr-range-item"><span class="z-lbl">${_t('ctrMaxMaxAgl')}</span><span class="ctr-range-value">${range.maxMaxAglM} m AGL</span></div>
+        </div>
+        <div class="z-row" style="margin-top:0.4rem"><span class="z-lbl">${_t('ctrTerrainRange')}</span><span class="z-val">${range.minTerrainMslM}–${range.maxTerrainMslM} m MSL</span></div>
+        <div class="ctr-height-note">${_t('ctrTerrainRangeNote')(range.sampleCount)}</div>
+      </div>` : '';
+      if (z.zoneNum === 1) {
+        return `<div class="ctr-height-box blocked"><div class="z-lbl">${_t('ctrZoneLabel')(1)}</div><div class="ctr-height-value">${_t('ctrIndividual')}</div></div>`;
+      }
+      if (!f?.available) {
+        return `<div class="ctr-height-box blocked"><div class="z-lbl">${_t('ctrZoneLabel')(z.zoneNum)}</div><div class="ctr-height-value">${_t('ctrHeightUnknown')(z.zoneNum)}</div><div class="ctr-height-note">${_t('ctrNoElevation')}</div></div>`;
+      }
+      if (f.requiresIndividual) {
+        return `<div class="ctr-height-box blocked"><div class="z-lbl">${_t('ctrZoneLabel')(z.zoneNum)}</div><div class="ctr-height-value">${_t('ctrIndividual')}</div><div class="ctr-height-note">${escapeHtml(f.calculation)}</div>${rangeHtml}</div>`;
+      }
+      return `<div class="ctr-height-box">
+        <div class="z-lbl">${_t('ctrGeneral')} · ${_t('ctrZoneLabel')(z.zoneNum)}</div>
+        <div class="ctr-height-value">${f.maxAglM} m AGL</div>
+        <div class="z-details">
+          <div class="z-row"><span class="z-lbl">${_t('ctrMaxAgl')}</span><span class="z-val">${f.maxAglM} m AGL</span></div>
+          <div class="z-row"><span class="z-lbl">${_t('ctrMaxMsl')}</span><span class="z-val">${f.maxMslM} m MSL</span></div>
+          <div class="z-row"><span class="z-lbl">${_t('ctrGround')}</span><span class="z-val">${f.groundMslM} m MSL</span></div>
+          <div class="z-row"><span class="z-lbl">${_t('ctrAirportRef')}</span><span class="z-val">${f.airportElevationMslM} m MSL</span></div>
+          <div class="z-row"><span class="z-lbl">${_t('ctrCalculation')}</span><span class="z-val">${escapeHtml(f.calculation)}</span></div>
+        </div>
+        ${rangeHtml}
+        <div class="ctr-height-note">${_t('ctrElevationNote')}</div>
+      </div>`;
+    }
+
     function renderZones(zones) {
       const cnt = zones.length;
       const $cnt = $('zones-overlay-cnt');
@@ -1162,24 +1423,35 @@
             <div class="z-name">${escapeHtml(z.name)}</div>
           </div>
           <div class="z-details">
-            <div class="z-row"><span class="z-lbl">${_t('lblType')}</span><span class="z-val">${escapeHtml(z.type)}</span></div>
+            <div class="z-row"><span class="z-lbl">${_t('lblType')}</span><span class="z-val">${escapeHtml(z.zoneNum ? _t('ctrZoneLabel')(z.zoneNum) : z.type)}</span></div>
             <div class="z-row"><span class="z-lbl">${_t('lblLower')}</span><span class="z-val">${escapeHtml(z.lower)}</span></div>
             <div class="z-row"><span class="z-lbl">${_t('lblUpper')}</span><span class="z-val">${escapeHtml(z.upper)}</span></div>
             <div class="z-row"><span class="z-lbl">${_t('lblLegal')}</span><span class="z-val">
               <a href="${encodeURI(getLegalLink(z.legal))}" target="_blank" rel="noopener" style="color:var(--accent);text-decoration:none;">${escapeHtml(z.legal)}</a>
             </span></div>
           </div>
+          ${ctrHeightHtml(z)}
         </div>`).join('');
     }
 
+    let zoneAnalysisSequence = 0;
     async function updateZonesOverlay() {
       if (AV.lat == null) return;
+      const seq = ++zoneAnalysisSequence;
+      const lat = AV.lat, lon = AV.lon;
       try {
-        const z = await fetchZones(AV.lat, AV.lon, 100);
-        AV.lastZones = z;
-        renderZones(z);
-        renderStatusOverlay(AV.lastWeather, z);
+        const [rawZones, terrainProfile] = await Promise.all([
+          fetchZones(lat, lon, 100),
+          fetchGroundElevationProfile(lat, lon, 100),
+        ]);
+        if (seq !== zoneAnalysisSequence || lat !== AV.lat || lon !== AV.lon) return;
+        AV.groundElevM = terrainProfile?.centerMslM ?? null;
+        const zones = applyCtrFlightInfo(rawZones, AV.groundElevM, terrainProfile);
+        AV.lastZones = zones;
+        renderZones(zones);
+        renderStatusOverlay(AV.lastWeather, zones);
       } catch {
+        if (seq !== zoneAnalysisSequence) return;
         AV.lastZones = [];
         renderZones([]);
         renderStatusOverlay(AV.lastWeather, []);
@@ -1238,14 +1510,61 @@
        „300 m über Grund" gemeinte Schwellwert in erhöhtem Gelände echte Tiefflieger
        verfehlen. Bei Fehler bleibt groundElevM auf dem letzten Wert (bzw. null →
        Fallback auf reine MSL-Prüfung). */
-    async function fetchGroundElevation(lat, lon) {
+    function terrainSamplePoints(lat, lon, radiusM) {
+      const points = [{ lat, lon }];
+      if (!(radiusM > 0)) return points;
+      const metresPerDegree = 111320;
+      const lonScale = Math.max(0.01, Math.cos(lat * Math.PI / 180));
+      [[radiusM / 2, 8], [radiusM, 16]].forEach(([ringRadius, count]) => {
+        for (let i = 0; i < count; i++) {
+          const bearing = 2 * Math.PI * i / count;
+          points.push({
+            lat: lat + (Math.cos(bearing) * ringRadius) / metresPerDegree,
+            lon: lon + (Math.sin(bearing) * ringRadius) / (metresPerDegree * lonScale),
+          });
+        }
+      });
+      return points;
+    }
+
+    async function fetchGroundElevationProfile(lat, lon, radiusM = 100) {
       try {
-        const r = await fetch(ELEVATION_URL + '?latitude=' + lat + '&longitude=' + lon);
-        if (!r.ok) return;
+        const points = terrainSamplePoints(lat, lon, radiusM);
+        const latitudes = points.map(point => point.lat.toFixed(6)).join(',');
+        const longitudes = points.map(point => point.lon.toFixed(6)).join(',');
+        const r = await fetch(ELEVATION_URL + '?latitude=' + encodeURIComponent(latitudes) + '&longitude=' + encodeURIComponent(longitudes));
+        if (!r.ok) return null;
         const d = await r.json();
-        const e = Array.isArray(d.elevation) ? d.elevation[0] : null;
-        if (typeof e === 'number' && isFinite(e)) AV.groundElevM = e;
-      } catch (e) { /* Netzfehler → alten Wert behalten */ }
+        if (!Array.isArray(d.elevation) || d.elevation.length !== points.length) return null;
+        const samples = points.map((point, index) => ({ ...point, elevationMslM: Number(d.elevation[index]) }))
+          .filter(sample => Number.isFinite(sample.elevationMslM));
+        if (samples.length !== points.length) return null;
+        return { radiusM, centerMslM: samples[0].elevationMslM, samples };
+      } catch (e) { return null; }
+    }
+
+    function dipulPointUrl(lat, lon, radiusM = 100) {
+      const language = LANG === 'de' ? 'de' : 'en';
+      const radius = Math.max(1, Math.round(Number(radiusM) || 100));
+      return `https://maptool-dipul.dfs.de/geozones/@${Number(lon).toFixed(6)},${Number(lat).toFixed(6)},${radius}r?language=${language}&zoom=14`;
+    }
+
+    // Standortbezogene Höhenanzeige im Kompaktstatus. Außerhalb einer CTR-D gilt
+    // die reguläre 120-m-Obergrenze der offenen Kategorie. Innerhalb der neuen
+    // Zonen 1–4 hat die punktgenaue CTR-Logik Vorrang; unbekannte/generische CTR-
+    // Treffer dürfen nicht fälschlich als 120 m freigegeben erscheinen.
+    function locationFlightLimit(zones) {
+      const ctrZones = (zones || []).filter(isCtrZone);
+      const detailed = ctrZones.filter(z => [1, 2, 3, 4].includes(Number(z.zoneNum)));
+      if (detailed.some(z => Number(z.zoneNum) === 1 || z.ctrFlight?.requiresIndividual)) {
+        return { value: _t('ctrIndividual'), state: 'blocked' };
+      }
+      const available = detailed
+        .filter(z => z.ctrFlight?.available && Number.isFinite(z.ctrFlight.maxAglM))
+        .sort((a, b) => a.ctrFlight.maxAglM - b.ctrFlight.maxAglM);
+      if (available.length) return { value: `${available[0].ctrFlight.maxAglM} m AGL`, state: '' };
+      if (ctrZones.length) return { value: _t('msFlightUnknown'), state: 'unknown' };
+      return { value: '120 m AGL', state: '' };
     }
 
     /* [J-RENDER-STATUS] Kompakt-Overlay: Zonen-Kurzlabels, Wind/Böen, Eisalarm */
@@ -1294,7 +1613,11 @@
       const seen = new Set();
       const items = [];
       (zones || []).forEach(z => {
-        const { label, color } = simplify(z.type, z.name);
+        const fallback = simplify(z.type, z.name);
+        const label = z.zoneNum
+          ? `${_t('ctrZoneLabel')(z.zoneNum)}${z.ctrFlight?.available && !z.ctrFlight.requiresIndividual ? ` · max. ${z.ctrFlight.maxAglM} m AGL` : ''}`
+          : fallback.label;
+        const color = z.zoneNum ? '#f59e0b' : fallback.color;
         if (!seen.has(label)) { seen.add(label); items.push({ label, color }); }
       });
 
@@ -1418,6 +1741,17 @@
           $f.classList.add('hidden');
           $f.innerHTML = '';
         }
+      }
+
+      const $loc = $('ms-location');
+      if ($loc && Number.isFinite(AV.lat) && Number.isFinite(AV.lon)) {
+        const elevation = Number.isFinite(AV.groundElevM)
+          ? `≈ ${Math.round(AV.groundElevM)} m MSL`
+          : '—';
+        const flightLimit = locationFlightLimit(zones);
+        $loc.innerHTML = `<div>${_t('msGroundMsl')}: ${elevation}</div>`
+          + `<div class="ms-flight-limit ${flightLimit.state}">${_t('msMaxFlight')}: <strong>${flightLimit.value}</strong></div>`
+          + `<a href="${dipulPointUrl(AV.lat, AV.lon)}" target="_blank" rel="noopener">${_t('msOpenDipul')} ↗</a>`;
       }
     }
 
@@ -1553,14 +1887,39 @@
       }).addTo(AV.map);
       AV.map.on('dblclick', e => {
         AV.lat = e.latlng.lat; AV.lon = e.latlng.lng;
+        AV.groundElevM = null;
         $('av-loc').textContent = AV.lat.toFixed(5) + ', ' + AV.lon.toFixed(5);
         AV.radiusCirc.setLatLng([AV.lat, AV.lon]);
         AV.scanCirc.setLatLng([AV.lat, AV.lon]);
         if (AV.posMarker) AV.posMarker.setLatLng([AV.lat, AV.lon]);
         updateZonesOverlay();
         updateWeatherOverlay();
-        fetchGroundElevation(AV.lat, AV.lon);
       });
+    }
+
+    function setMapStyle(index) {
+      AV.styleIdx = ((index % AV.STYLES.length) + AV.STYLES.length) % AV.STYLES.length;
+      const style = AV.STYLES[AV.styleIdx];
+      if (AV.map && AV.tileL) {
+        AV.map.removeLayer(AV.tileL);
+        AV.tileL = L.tileLayer(style.u, {
+          attribution: style.a,
+          subdomains: style.s || 'abc',
+          maxZoom: 19,
+        }).addTo(AV.map);
+        AV.tileL.bringToBack();
+      }
+      const button = $('av-style');
+      if (button) button.title = style.n;
+    }
+
+    function setInterfaceTheme(light) {
+      AV.lightMode = Boolean(light);
+      $('app-view').classList.toggle('av-light', AV.lightMode);
+      $('av-theme').textContent = AV.lightMode ? '🌙' : '☀';
+      // Theme und Basiskarte bilden ein gemeinsames Tages-/Nachtprofil. Der
+      // separate Kartenstil-Schalter kann danach weiterhin manuell überschreiben.
+      setMapStyle(AV.lightMode ? 1 : 0); // OSM : CARTO Dark
     }
 
     // Self-scheduling-Poll: nach jedem Lauf wird der nächste per setTimeout geplant.
@@ -1874,6 +2233,7 @@
 
     function startApp(lat, lon) {
       AV.lat = lat; AV.lon = lon;
+      AV.groundElevM = null;
       $('av-loc').textContent = lat.toFixed(5) + ', ' + lon.toFixed(5);
       $('splash').classList.add('hidden');
       if (!AV.map) avInitMap();
@@ -1881,7 +2241,6 @@
       avStartPoll();
       updateZonesOverlay();
       updateWeatherOverlay();
-      fetchGroundElevation(lat, lon);
       requestWakeLock();
       if (!AV.weatherInterval) AV.weatherInterval = setInterval(updateWeatherOverlay, AV.WEATHER_POLL_MS);
     }
@@ -1963,6 +2322,7 @@
         if (!navigator.geolocation) return;
         navigator.geolocation.getCurrentPosition(pos => {
           AV.lat = pos.coords.latitude; AV.lon = pos.coords.longitude;
+          AV.groundElevM = null;
           $('av-loc').textContent = AV.lat.toFixed(5) + ', ' + AV.lon.toFixed(5);
           if (AV.map) {
             AV.map.setView([AV.lat, AV.lon], 14);
@@ -1972,7 +2332,6 @@
           if (AV.posMarker) AV.posMarker.setLatLng([AV.lat, AV.lon]);
           updateZonesOverlay();
           updateWeatherOverlay();
-          fetchGroundElevation(AV.lat, AV.lon);
         });
       });
 
@@ -2004,18 +2363,11 @@
 
       $('av-style').addEventListener('click', () => {
         if (!AV.map || !AV.tileL) return;
-        AV.styleIdx = (AV.styleIdx + 1) % AV.STYLES.length;
-        const s = AV.STYLES[AV.styleIdx];
-        AV.map.removeLayer(AV.tileL);
-        AV.tileL = L.tileLayer(s.u, { attribution: s.a, subdomains: s.s || 'abc', maxZoom: 19 }).addTo(AV.map);
-        AV.tileL.bringToBack();
-        $('av-style').title = s.n;
+        setMapStyle(AV.styleIdx + 1);
       });
 
       $('av-theme').addEventListener('click', () => {
-        AV.lightMode = !AV.lightMode;
-        $('app-view').classList.toggle('av-light', AV.lightMode);
-        $('av-theme').textContent = AV.lightMode ? '🌙' : '☀';
+        setInterfaceTheme(!AV.lightMode);
       });
 
       $('av-info').addEventListener('click', () => $('info-modal').classList.remove('hidden'));

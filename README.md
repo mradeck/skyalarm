@@ -16,11 +16,14 @@ Abgespalten aus dem Schwesterprojekt [SkyCheck](https://skycheck-de.netlify.app/
 - **Differenzierte Fluggerät-Symbolik** nach ADS-B-Emitter-Kategorie DO-260B 2.2.3.2.5.2: Flächenflugzeug, Helikopter, Segelflieger, Luftschiff/Zeppelin, Fallschirm, Gleitschirm/Drachen, Drohne — visuell unterscheidbare SVG-Icons je Klasse
 - **OGN-Targets** sind in einem gedeckten Cyan-Ton dargestellt; im Popup wird die Quelle als „OGN" oder „ADS-B+OGN" markiert
 - **Geozonen-Karte** mit allen DiPUL-Ebenen (Kontrollzonen, Naturschutz, Industrie, Militär u. a.)
-- **Ausklappbare Zonen-Detailliste** (Typ, untere/obere Grenze, Rechtshinweis) oben rechts
+- **CTR-D-Zonen 1–4** punktgenau differenziert; für Zonen 2–4 werden maximale Flughöhe AGL/MSL, Geländehöhe, Bezugshöhe und Rechenweg angezeigt
+- **100-m-Geländekorridor** mit geringster und größter Maximalflughöhe aus 25 Geländestützpunkten
+- **Ausklappbare Zonen-Detailliste** (Typ, untere/obere Grenze, Rechtshinweis und CTR-Höhenanalyse) oben rechts
 
 ### Kompakt-Status-Overlay (oben rechts)
 
 - **Zonen-Kurzlabels** mit farbiger Klassifizierung (Flughafen, CTR, Naturschutz, Wasserstraße, Autobahn …)
+- **Standortbezogene Maximalhöhe** direkt unter der Geländehöhe: 120 m AGL außerhalb der CTR-D-Zonen, innerhalb der Zonen 1–4 nach der punktgenauen CTR-Höhenlogik
 - **Wind- und Böen-Anzeige** mit Richtungspfeil und Schwellwert-Farben (≥ 7 m/s Warnung, ≥ 10 m/s NoGo)
 - **Vereisungs- und Nebelprognose 50 m AGL** auf Basis von Magnus-Tetens-Taupunkt und Standard-Lapse-Rate
 - **Eisalarm** bei Niederschlag und Temperatur ≤ 0 °C
@@ -29,7 +32,7 @@ Abgespalten aus dem Schwesterprojekt [SkyCheck](https://skycheck-de.netlify.app/
 ### Karte und Bedienung
 
 - **Karten-Stile**: Dark / OSM / Satellit / Hell
-- **Hell-/Dunkel-Modus** für Tag- und Nachteinsatz
+- **Hell-/Dunkel-Modus** für Tag- und Nachteinsatz, automatisch gekoppelt mit OSM beziehungsweise CARTO Dark; der Kartenstil bleibt anschließend manuell überschreibbar
 - **Doppelklick-Korrektur** des Alarmzentrums
 - **Trail-Visualisierung** der letzten 60 Sekunden je Flugzeug
 - **DE/EN-I18N**, persistiert in `localStorage`
@@ -87,7 +90,7 @@ Erstmaliges Setup (Referenz, falls eine Spiegelinstanz aufgesetzt werden soll):
 
 ## Versionierung
 
-Die Versionsnummer steht ausschließlich in `const APP_VER` in `skyalarm.html` (Anker `[J-VER]`, Zeile ~834) und wird per DOM-Updater an Header (`<sup class="l-ver">`) und Info-Modal (`<span class="l-ver">`) propagiert. Aktueller Stand: **v0.38**.
+Die Versionsnummer steht ausschließlich in `const APP_VER` in `skyalarm.html` (Anker `[J-VER]`) und wird per DOM-Updater an Header (`<sup class="l-ver">`) und Info-Modal (`<span class="l-ver">`) propagiert. Aktueller Stand: **v0.40**.
 
 Die vollständige Versions-Historie ist in `CLAUDE.md` dokumentiert.
 
