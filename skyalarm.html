@@ -498,6 +498,10 @@
       text-decoration: none;
       pointer-events: auto;
     }
+    .ms-coordinates { margin-top: 0.25rem; font-size: 0.68rem; pointer-events: auto; }
+    .ms-coordinates summary { color: var(--accent); cursor: pointer; overflow-wrap: anywhere; }
+    .ms-coordinate-grid { display: grid; gap: 0.18rem; margin-top: 0.3rem; color: var(--text2); font-variant-numeric: tabular-nums; pointer-events: auto; }
+    .ms-coordinate-note { opacity: 0.75; font-size: 0.62rem; line-height: 1.25; }
     .ms-flight-limit strong { color: var(--accent); }
     .ms-flight-limit.blocked strong { color: #ef476f; }
     .ms-flight-limit.unknown strong { color: #f59e0b; }
@@ -695,9 +699,10 @@
       display: flex;
       flex-direction: column;
       align-items: center;
-      justify-content: center;
+      justify-content: flex-start;
       gap: 0.8rem;
-      padding: 1rem;
+      padding: max(1rem, calc((100dvh - 650px) / 2)) 1rem 1rem;
+      overflow-y: auto;
     }
     #splash.hidden { display: none; }
     #splash h1 {
@@ -769,6 +774,55 @@
       cursor: pointer;
     }
     #splash .splash-auto input { cursor: pointer; }
+    #splash .splash-other-apps {
+      width: min(22rem, 100%);
+      margin-top: 0.25rem;
+    }
+    #splash .splash-other-label {
+      margin-bottom: 0.4rem;
+      color: var(--text2);
+      font-size: 0.62rem;
+      font-weight: 800;
+      letter-spacing: 0.13em;
+      text-align: center;
+      text-transform: uppercase;
+    }
+    #splash .splash-app-card {
+      display: flex;
+      align-items: center;
+      gap: 0.8rem;
+      padding: 0.65rem 0.8rem;
+      border: 1px solid rgba(0,180,216,0.25);
+      border-radius: var(--radius);
+      background: rgba(0,180,216,0.05);
+      color: var(--text);
+      text-align: left;
+      text-decoration: none;
+    }
+    #splash .splash-app-card:hover {
+      border-color: var(--accent);
+      background: rgba(0,180,216,0.11);
+    }
+    #splash .splash-app-logo {
+      flex: 0 0 102px;
+      font-size: 0.92rem;
+      font-weight: 900;
+      letter-spacing: -0.05em;
+      white-space: nowrap;
+    }
+    #splash .gps2utm-logo .gps-white { color: var(--text); }
+    #splash .gps2utm-logo .gps-two { color: #ef4444; padding: 0 0.03em; }
+    #splash .gps2utm-logo .gps-utm { color: var(--accent); }
+    #splash .skycheck-logo .skycheck-accent,
+    #splash .pointcloud-logo .pointcloud-accent { color: var(--accent); }
+    #splash .pointcloud-logo { white-space: normal; line-height: 1.05; }
+    #splash .splash-app-desc {
+      min-width: 0;
+      color: var(--text2);
+      font-size: 0.7rem;
+      line-height: 1.3;
+    }
+    #splash .splash-app-arrow { margin-left: auto; color: var(--accent); }
 
     /* === INFO MODAL === */
     .modal-overlay {
@@ -889,6 +943,7 @@
     }
   </style>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+  <script src="coordinate-tools.js"></script>
 </head>
 <body>
 
@@ -951,6 +1006,24 @@
     <button class="splash-btn secondary" id="splash-default" data-i18n="splashDefault">Mit Standardposition starten (München)</button>
     <label class="splash-auto"><input type="checkbox" id="splash-auto"><span data-i18n="splashAuto">Beim Start automatisch Standort verwenden</span></label>
     <p id="splash-status" style="font-size:0.75rem;opacity:0.65;"></p>
+    <div class="splash-other-apps">
+      <div class="splash-other-label" data-i18n="otherApps">Weitere Apps</div>
+      <a class="splash-app-card" href="https://gps2utm.netlify.app/" target="_blank" rel="noopener">
+        <span class="splash-app-logo gps2utm-logo" aria-label="GPS2UTM"><span class="gps-white">GPS</span><span class="gps-two">2</span><span class="gps-utm">UTM</span></span>
+        <span class="splash-app-desc" data-i18n="gps2utmDesc">GPS-Position in UTM, Gauß-Krüger und DHHN2016 umrechnen</span>
+        <span class="splash-app-arrow" aria-hidden="true">→</span>
+      </a>
+      <a class="splash-app-card" href="https://skycheck-de.netlify.app/" target="_blank" rel="noopener">
+        <span class="splash-app-logo skycheck-logo">Sky<span class="skycheck-accent">Check</span></span>
+        <span class="splash-app-desc" data-i18n="skyCheckDesc">Drohnenflugprüfung mit Geozonen, Wetter und Luftrauminformationen</span>
+        <span class="splash-app-arrow" aria-hidden="true">→</span>
+      </a>
+      <a class="splash-app-card" href="https://pointcloud-manager.app/" target="_blank" rel="noopener">
+        <span class="splash-app-logo pointcloud-logo">PointCloud <span class="pointcloud-accent">Manager</span></span>
+        <span class="splash-app-desc" data-i18n="pointCloudDesc">Punktwolken verwalten, prüfen und für weitere Workflows vorbereiten</span>
+        <span class="splash-app-arrow" aria-hidden="true">→</span>
+      </a>
+    </div>
     <div class="modal-srcs splash-srcs">
       <a href="https://airplanes.live/" target="_blank" rel="noopener">airplanes.live</a>
       <a href="https://www.glidernet.org/" target="_blank" rel="noopener">OGN</a>
@@ -963,7 +1036,7 @@
       <a href="https://www.michael-radeck.de" target="_blank" rel="noopener">michael-radeck.de</a>
       <a href="https://ko-fi.com/mradeck/tip" target="_blank" rel="noopener">☕ Ko-fi</a>
     </div>
-    <p class="splash-foot">SkyAlarm v<span class="l-ver"></span> · <a href="https://skycheck-de.netlify.app/" target="_blank" rel="noopener">SkyCheck</a></p>
+    <p class="splash-foot">SkyAlarm <span class="l-ver"></span> · <a href="https://skycheck-de.netlify.app/" target="_blank" rel="noopener">SkyCheck</a></p>
   </div>
 
   <div id="info-modal" class="modal-overlay hidden">
@@ -985,14 +1058,16 @@
         <a href="https://www.michael-radeck.de" target="_blank">michael-radeck.de</a>
         <a href="https://ko-fi.com/mradeck/tip" target="_blank">☕ Ko-fi</a>
       </div>
-      <p style="font-size:0.7rem;opacity:0.55;margin-top:0.8rem;">SkyAlarm v<span class="l-ver"></span> · <a href="https://skycheck-de.netlify.app/" target="_blank">SkyCheck</a></p>
+      <p style="font-size:0.7rem;opacity:0.55;margin-top:0.8rem;">SkyAlarm <span class="l-ver"></span> · <a href="https://skycheck-de.netlify.app/" target="_blank">SkyCheck</a></p>
     </div>
   </div>
 
   <script>
     /* [J-VER] Versionsnummer — einzige Stelle */
-    const APP_VER = '0.45';
-    document.querySelectorAll('.l-ver').forEach(e => e.textContent = APP_VER);
+    const APP_VER = '26.08.47.1';
+    const APP_VERSION_CODE = 'v' + APP_VER;
+    document.title = `SkyAlarm ${APP_VERSION_CODE} — Tiefflieger-Alarm`;
+    document.querySelectorAll('.l-ver').forEach(e => e.textContent = APP_VERSION_CODE);
 
     /* [J-I18N] Internationalisierung — DE/EN, alarm-spezifisch */
     const I18N = {
@@ -1020,6 +1095,10 @@
         splashAuto: 'Beim Start automatisch Standort verwenden',
         splashWaiting: 'Standort wird abgefragt…',
         splashDenied: 'Standortzugriff verweigert. Standardposition wird verwendet.',
+        otherApps: 'Weitere Apps',
+        gps2utmDesc: 'GPS-Position in UTM, Gauß-Krüger und DHHN2016 umrechnen',
+        skyCheckDesc: 'Drohnenflugprüfung mit Geozonen, Wetter und Luftrauminformationen',
+        pointCloudDesc: 'Punktwolken verwalten, prüfen und für weitere Workflows vorbereiten',
         infoTitle: 'Über SkyAlarm',
         infoP1: 'SkyAlarm meldet in Echtzeit Tiefflieger im Umkreis und visualisiert Luftraumzonen (DiPUL). Doppelklick auf die Karte verschiebt das Alarm-Zentrum.',
         infoP2: 'Bei Annäherung eines Flugzeugs unter ca. 300 m Flughöhe innerhalb 2 km wird ein akustisches und vibrierendes Alarmsignal ausgelöst.',
@@ -1099,6 +1178,10 @@
         splashAuto: 'Auto-use my location on startup',
         splashWaiting: 'Requesting location…',
         splashDenied: 'Location denied. Using default position.',
+        otherApps: 'More apps',
+        gps2utmDesc: 'Convert a GPS position to UTM, Gauss-Krueger and DHHN2016',
+        skyCheckDesc: 'Drone flight check with geo-zones, weather and airspace information',
+        pointCloudDesc: 'Manage, inspect and prepare point clouds for further workflows',
         infoTitle: 'About SkyAlarm',
         infoP1: 'SkyAlarm reports nearby low-altitude aircraft in real time and displays airspace zones (DiPUL). Double-click the map to move the alarm center.',
         infoP2: 'When an aircraft below ~300 m altitude approaches within 2 km, an acoustic and vibrating alarm is triggered.',
@@ -1217,6 +1300,8 @@
       radiusCirc: null, scanCirc: null, posMarker: null,
       interval: null, beepInterval: null, weatherInterval: null, wakeLock: null,
       lat: null, lon: null, groundElevM: null,
+      gpsAltitudeM: null, gpsAltitudeAccuracyM: null,
+      geoidSeparationM: null, geoidCoordinateKey: '',
       lastZones: [], lastWeather: null,
       zonesOn: true, lightMode: false, alarmOn: false, allLabels: false, autoStart: false, styleIdx: 0,
       openPopupHex: null,
@@ -1659,6 +1744,42 @@
       return { value: '120 m AGL', state: '' };
     }
 
+    function scheduleCoordinateGeoid() {
+      if (!Number.isFinite(AV.lat) || !Number.isFinite(AV.lon) || !window.GeoCoordinates) return;
+      const key = `${AV.lat.toFixed(7)},${AV.lon.toFixed(7)}`;
+      if (AV.geoidCoordinateKey === key) return;
+      AV.geoidCoordinateKey = key;
+      AV.geoidSeparationM = null;
+      GeoCoordinates.geoidAt(AV.lat, AV.lon).then(value => {
+        if (AV.geoidCoordinateKey !== key) return;
+        AV.geoidSeparationM = value;
+        renderStatusOverlay(AV.lastWeather, AV.lastZones || []);
+      }).catch(error => console.warn('GCG2016 unavailable:', error));
+    }
+
+    function coordinateDetailsHtml(lat, lon) {
+      if (!window.GeoCoordinates) return '';
+      const c = GeoCoordinates.convert(lat, lon);
+      const de = LANG === 'de';
+      const n = value => Number(value).toLocaleString(de ? 'de-DE' : 'en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      const geoid = Number.isFinite(AV.geoidSeparationM) ? `${n(AV.geoidSeparationM)} m` : (de ? 'wird geladen…' : 'loading…');
+      const normal = Number.isFinite(AV.geoidSeparationM) && Number.isFinite(AV.gpsAltitudeM)
+        ? `${n(GeoCoordinates.normalHeight(AV.gpsAltitudeM, AV.geoidSeparationM))} m NHN`
+        : (de ? 'keine GPS-Höhe' : 'no GPS altitude');
+      const appUrl = `https://skycheck-de.netlify.app/coordinates.html?lat=${lat.toFixed(8)}&lon=${lon.toFixed(8)}`;
+      return `<details class="ms-coordinates">
+        <summary>ETRS89 / UTM ${c.utm.zoneBand}: ${n(c.utm.easting)} E · ${n(c.utm.northing)} N</summary>
+        <div class="ms-coordinate-grid">
+          <span>EPSG:${c.utm.epsg} · ${c.wgs84.latDms} · ${c.wgs84.lonDms}</span>
+          <span>${de ? 'Gauß-Krüger Näherung' : 'Gauss-Krueger approximation'} ${c.gk.zone}: ${n(c.gk.easting)} R · ${n(c.gk.northing)} H</span>
+          <span>GCG2016 ζ: ${geoid}${Number.isFinite(AV.gpsAltitudeM) ? ` · DHHN2016 H: ${normal}` : ''}</span>
+          <span class="ms-coordinate-note">${de ? 'GK ohne BeTA2007 nur zur Orientierung.' : 'GK without BeTA2007 is for orientation only.'}</span>
+          <a href="https://mis.bkg.bund.de/trefferanzeige?docuuid=983fac52-b7de-4f43-a6f5-91e007a6f963" target="_blank" rel="noopener">GCG2016 © GeoBasis-DE / BKG (2026), CC BY 4.0</a>
+          <a href="${appUrl}" target="_blank" rel="noopener">${de ? 'Koordinaten-App öffnen' : 'Open coordinate app'} ↗</a>
+        </div>
+      </details>`;
+    }
+
     /* [J-RENDER-STATUS] Kompakt-Overlay: Zonen-Kurzlabels, Wind/Böen, Eisalarm */
     function renderStatusOverlay(weather, zones) {
       // --- Zonen-Vereinfachung (wie SkyCheck renderMapStatus) ---
@@ -1837,12 +1958,14 @@
 
       const $loc = $('ms-location');
       if ($loc && Number.isFinite(AV.lat) && Number.isFinite(AV.lon)) {
+        scheduleCoordinateGeoid();
         const elevation = Number.isFinite(AV.groundElevM)
           ? `≈ ${Math.round(AV.groundElevM)} m MSL`
           : '—';
         const flightLimit = locationFlightLimit(zones);
         $loc.innerHTML = `<div>${_t('msGroundMsl')}: ${elevation}</div>`
           + `<div class="ms-flight-limit ${flightLimit.state}">${_t('msMaxFlight')}: <strong>${flightLimit.value}</strong></div>`
+          + coordinateDetailsHtml(AV.lat, AV.lon)
           + `<a href="${dipulPointUrl(AV.lat, AV.lon)}" target="_blank" rel="noopener">${_t('msOpenDipul')} ↗</a>`;
       }
     }
@@ -1981,6 +2104,7 @@
       AV.map.on('dblclick', e => {
         AV.lat = e.latlng.lat; AV.lon = e.latlng.lng;
         AV.groundElevM = null;
+        AV.gpsAltitudeM = AV.gpsAltitudeAccuracyM = null;
         $('av-loc').textContent = AV.lat.toFixed(5) + ', ' + AV.lon.toFixed(5);
         AV.radiusCirc.setLatLng([AV.lat, AV.lon]);
         AV.scanCirc.setLatLng([AV.lat, AV.lon]);
@@ -2385,9 +2509,11 @@
     /* [J-START] Initial-Flow: GPS oder Standardposition */
     const DEFAULT_LAT = 48.137, DEFAULT_LON = 11.575; // München-Zentrum
 
-    function startApp(lat, lon) {
+    function startApp(lat, lon, gpsCoords = null) {
       AV.lat = lat; AV.lon = lon;
       AV.groundElevM = null;
+      AV.gpsAltitudeM = Number.isFinite(gpsCoords?.altitude) ? gpsCoords.altitude : null;
+      AV.gpsAltitudeAccuracyM = Number.isFinite(gpsCoords?.altitudeAccuracy) ? gpsCoords.altitudeAccuracy : null;
       $('av-loc').textContent = lat.toFixed(5) + ', ' + lon.toFixed(5);
       $('splash').classList.add('hidden');
       if (!AV.map) avInitMap();
@@ -2409,7 +2535,7 @@
         return;
       }
       navigator.geolocation.getCurrentPosition(
-        pos => startApp(pos.coords.latitude, pos.coords.longitude),
+        pos => startApp(pos.coords.latitude, pos.coords.longitude, pos.coords),
         () => {
           $('splash-status').textContent = _t('splashDenied');
           setTimeout(() => startApp(DEFAULT_LAT, DEFAULT_LON), 600);
@@ -2482,6 +2608,8 @@
         navigator.geolocation.getCurrentPosition(pos => {
           AV.lat = pos.coords.latitude; AV.lon = pos.coords.longitude;
           AV.groundElevM = null;
+          AV.gpsAltitudeM = Number.isFinite(pos.coords.altitude) ? pos.coords.altitude : null;
+          AV.gpsAltitudeAccuracyM = Number.isFinite(pos.coords.altitudeAccuracy) ? pos.coords.altitudeAccuracy : null;
           $('av-loc').textContent = AV.lat.toFixed(5) + ', ' + AV.lon.toFixed(5);
           if (AV.map) {
             AV.map.setView([AV.lat, AV.lon], 14);

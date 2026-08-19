@@ -1,5 +1,5 @@
-const CACHE_NAME = 'skyalarm-v1';
-const SHELL = ['/skyalarm.html','/icon-192x192.png','/icon-512x512.png','/manifest.json'];
+const CACHE_NAME = 'skyalarm-26.08.47.1';
+const SHELL = ['/skyalarm.html','/coordinate-tools.js','/data/gcg2016v2023-cm.i16','/icon-192x192.png','/icon-512x512.png','/manifest.json'];
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE_NAME).then(c => c.addAll(SHELL)).then(() => self.skipWaiting()));
 });

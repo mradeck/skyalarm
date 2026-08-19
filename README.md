@@ -82,7 +82,7 @@ Das Projekt ist auf Netlify unter https://skyalarm.netlify.app/ erreichbar und w
 **Verifikation der Live-Version:**
 
 ```bash
-curl -s "https://skyalarm.netlify.app/skyalarm.html" | grep -o "APP_VER = '0\.[0-9]*'"
+curl -s "https://skyalarm.netlify.app/skyalarm.html" | grep -o "APP_VER = '[0-9.]*'"
 ```
 
 Erstmaliges Setup (Referenz, falls eine Spiegelinstanz aufgesetzt werden soll):
@@ -94,7 +94,13 @@ Erstmaliges Setup (Referenz, falls eine Spiegelinstanz aufgesetzt werden soll):
 
 ## Versionierung
 
-Die Versionsnummer steht ausschließlich in `const APP_VER` in `skyalarm.html` (Anker `[J-VER]`) und wird per DOM-Updater an Header (`<sup class="l-ver">`) und Info-Modal (`<span class="l-ver">`) propagiert. Aktueller Stand: **v0.45**.
+SkyAlarm verwendet wie der PointCloud Manager das Schema
+`vYY.MM.major.subversion`. Die bisherige fortlaufende SkyAlarm-Version bildet
+die `major`-Stelle; ein neuer Funktionsstand startet bei Subversion `0`, reine
+lokale Fixes und Hotfixes erhöhen nur die letzte Stelle. Zentrale Quelle ist
+`const APP_VER` in `skyalarm.html` (Anker `[J-VER]`); der vollständige String
+erscheint im Browser-Tab, App-Kopf und Info-Modal. Aktueller Stand:
+**v26.08.47.1**.
 
 Die vollständige Versions-Historie ist in `CLAUDE.md` dokumentiert.
 

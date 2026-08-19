@@ -12,7 +12,7 @@
    ```bash
    git fetch origin && git reset --hard origin/main
    ```
-4. **Antwort-Titel:** Jede Antwort beginnt mit Datum, Uhrzeit und aktueller Versionsnummer (z. B. `## 2026-05-01 00:30 — SkyAlarm v0.16`).
+4. **Antwort-Titel:** Jede Antwort beginnt mit Datum, Uhrzeit und aktueller Versionsnummer (z. B. `## 2026-08-20 00:30 — SkyAlarm v26.08.47.1`).
 5. **Dokumentationspflicht:** Bei jeder Versionserhöhung sind im selben Schritt die Versions-Historie und ggf. die Architektur-Sektion dieser Datei zu aktualisieren — ohne gesonderte Aufforderung.
 
 ---
@@ -41,7 +41,7 @@ Bewusst **nicht enthalten** (im Gegensatz zu SkyCheck):
 **Datei:** `skyalarm.html` (Single-File HTML/JS/CSS, ~1800 Zeilen) plus Netlify-Function `netlify/functions/ogn.js` (OGN-Proxy, ~170 Zeilen)
 **Live:** https://skyalarm.netlify.app/
 **Repo:** https://github.com/mradeck/skyalarm (Default-Branch: `main`)
-**Aktuell:** v0.45 — Die Detektionsradius-Einführung erscheint einmal bei jedem App-Start statt nur ein einziges Mal pro Browser.
+**Aktuell:** v26.08.47.1 — Die Startseite verlinkt GPS2UTM, SkyCheck und PointCloud Manager; SkyAlarm folgt dem PointCloud-Schema `vYY.MM.major.subversion`.
 
 ---
 
@@ -106,16 +106,16 @@ Alle ADS-B-, Wetter- und DiPUL-Endpoints sind direkt vom Browser erreichbar. Fü
 
 ## Arbeitsregeln
 
-1. **Versionsnummer:** Jede Änderung an `skyalarm.html` erhöht `const APP_VER` (Zeile ~677, Anker `[J-VER]`) um 0.01. Keine Ausnahme.
+1. **Versionsnummer:** Jede Änderung an `skyalarm.html` erhöht `const APP_VER` (Anker `[J-VER]`) im Schema `YY.MM.major.subversion`. Die fortlaufende SkyAlarm-Version bildet `major`; neue Funktionsstände starten bei Subversion `0`, reine lokale Fixes und Hotfixes erhöhen nur die letzte Stelle. Keine Ausnahme.
 2. **Patches:** Read/Edit-Tools direkt auf `skyalarm.html` anwenden; Anker-Eindeutigkeit vorab per `grep` verifizieren.
 3. **JS-Syntaxcheck:** vor jedem Commit
    ```bash
    sed -n '/<script>$/,/<\/script>/p' skyalarm.html | head -n -1 | tail -n +2 > /tmp/check.js && node --check /tmp/check.js
    ```
-4. **Commit-Format:** `SkyAlarm vX.XX — Kurzbeschreibung`.
-5. **Push und Verifikation:** `git add skyalarm.html && git commit -m 'SkyAlarm vX.XX' && git push`; anschließend Netlify-Deployment per
+4. **Commit-Format:** `SkyAlarm vYY.MM.major.subversion — Kurzbeschreibung`.
+5. **Push und Verifikation:** `git add skyalarm.html && git commit -m 'SkyAlarm vYY.MM.major.subversion' && git push`; anschließend Netlify-Deployment per
    ```bash
-   curl -s "https://skyalarm.netlify.app/skyalarm.html" | grep -o "APP_VER = '0\.[0-9]*'"
+   curl -s "https://skyalarm.netlify.app/skyalarm.html" | grep -o "APP_VER = '[0-9.]*'"
    ```
    verifizieren (Build-Zeit ca. 20 s).
 6. **Antworten:** Deutsch, wissenschaftlicher Stil, dritte Person.
@@ -154,6 +154,9 @@ Für Recherche, Visualisierung, Computer-Use; Code-Änderungen vorzugsweise via 
 
 | Version | Änderungen |
 |---|---|
+| v26.08.47.1 | **App-Verbund vervollständigt.** Der Start-Splash verlinkt jetzt GPS2UTM, SkyCheck und PointCloud Manager als einheitliche responsive App-Kacheln. |
+| v26.08.47.0 | **GPS2UTM im App-Verbund und neues Versionsschema.** Die Startseite enthält eine responsive GPS2UTM-Kachel. SkyAlarm nutzt nun `vYY.MM.major.subversion`; die vollständige Version erscheint im Browser-Tab, App-Kopf, Splash-Footer und Info-Modal. |
+| v0.46 | **Koordinaten und Höhenbezug.** Die Standort-Infotafel zeigt ETRS89/UTM direkt und klappt WGS84-DMS, Gauß-Krüger-Näherung sowie GCG2016 auf. Liefert das Gerät eine ellipsoidische GPS-Höhe, wird daraus DHHN2016 berechnet. Gemeinsames Modul und kompaktes Geoid werden offline gecacht; Karten-Doppelklick verwirft bewusst eine nicht mehr zur Position passende GPS-Höhe. |
 | v0.45 | **Detektionsradius-Hinweis pro App-Start wiederhergestellt.** Der dauerhafte `localStorage`-Merker wurde durch einen In-Memory-Guard ersetzt. Reaktionszeiten und der blinkende „ändern“-Hinweis erscheinen damit bei jedem neuen App-Start einmal, werden innerhalb derselben laufenden Ansicht aber nicht doppelt ausgelöst. |
 | v0.44 | **Theme-Zustand dauerhaft synchronisiert.** Die Auswahl Hell/Dunkel wird in `localStorage` gespeichert und beim Start vor dem Kartenaufbau wiederhergestellt. Damit fallen Interface, OSM/CARTO-Basiskarte und Info-Modal nach Reload oder Öffnen eines neuen Versionslinks nicht mehr auf unterschiedliche beziehungsweise unerwartete Zustände zurück. Für eindeutige Vorschauen kann das Theme zusätzlich mit `?theme=light` oder `?theme=dark` vorgegeben werden. |
 | v0.43 | **Info-Modal an Hellmodus angepasst.** Da `#info-modal` außerhalb von `#app-view` liegt, griff die bisherige `#app-view.av-light`-Kaskade dort nicht. `setInterfaceTheme()` synchronisiert nun eine eigene `av-light`-Klasse am Modal. Modalfläche, Rahmen, Schatten, Fließtext, Schließen-Button, Links und Quellenchips verwenden ein kontrastreiches helles Farbschema; der Kartenhintergrund wird im Hellmodus weicher und leicht bläulich abgedunkelt. |
