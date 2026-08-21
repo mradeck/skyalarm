@@ -1064,7 +1064,7 @@
 
   <script>
     /* [J-VER] Versionsnummer — einzige Stelle */
-    const APP_VER = '26.08.47.1';
+    const APP_VER = '26.08.47.2';
     const APP_VERSION_CODE = 'v' + APP_VER;
     document.title = `SkyAlarm ${APP_VERSION_CODE} — Tiefflieger-Alarm`;
     document.querySelectorAll('.l-ver').forEach(e => e.textContent = APP_VERSION_CODE);
@@ -1653,8 +1653,13 @@
       // NUR den 00:00-UTC-Datensatz — die App zeigte dann ganztägig Mitternachtswerte
       const tFmt = d => encodeURIComponent(d.toISOString());
       const url = `${BRIGHTSKY_URL}?lat=${lat}&lon=${lon}&date=${tFmt(start)}&last_date=${tFmt(end)}&units=si`;
+      // AbortController mit 6-s-Timeout: ein hängendes BrightSky (schwacher Mobilfunk) soll den
+      // Wetter-Poll nicht blockieren; ein Abbruch wird wie jeder Fehler als null behandelt →
+      // updateWeatherOverlay behält den letzten guten Datensatz.
+      const ctrl = new AbortController();
+      const to = setTimeout(() => ctrl.abort(), 6000);
       try {
-        const r = await fetch(url);
+        const r = await fetch(url, { signal: ctrl.signal });
         if (!r.ok) return null;
         const d = await r.json();
         const arr = (d.weather || []).map(w => ({
@@ -1671,6 +1676,7 @@
         });
         return best;
       } catch { return null; }
+      finally { clearTimeout(to); }
     }
 
     async function updateWeatherOverlay() {

@@ -41,7 +41,7 @@ Bewusst **nicht enthalten** (im Gegensatz zu SkyCheck):
 **Datei:** `skyalarm.html` (Single-File HTML/JS/CSS, ~1800 Zeilen) plus Netlify-Function `netlify/functions/ogn.js` (OGN-Proxy, ~170 Zeilen)
 **Live:** https://skyalarm.netlify.app/
 **Repo:** https://github.com/mradeck/skyalarm (Default-Branch: `main`)
-**Aktuell:** v26.08.47.1 — Die Startseite verlinkt GPS2UTM, SkyCheck und PointCloud Manager; SkyAlarm folgt dem PointCloud-Schema `vYY.MM.major.subversion`.
+**Aktuell:** v26.08.47.2 — **Wetter-Fetch gehärtet:** BrightSky-Abruf mit 6-s-`AbortController`-Timeout (passend zum ADS-B-Poll); ein hängender Abruf auf schwachem Mobilfunk blockiert den 10-min-Wetter-Poll nicht mehr und wird wie jeder Fehler behandelt (`updateWeatherOverlay` behält den letzten guten Datensatz). Gegencheck aus dem SkyCheck-v114-Wetter-Fix — SkyAlarm war bereits robust (try/catch → null, last-good, 7-h-Fenster), nur der Timeout fehlte. Vorgänger v26.08.47.1 — Die Startseite verlinkt GPS2UTM, SkyCheck und PointCloud Manager; SkyAlarm folgt dem PointCloud-Schema `vYY.MM.major.subversion`.
 
 ---
 
@@ -154,6 +154,7 @@ Für Recherche, Visualisierung, Computer-Use; Code-Änderungen vorzugsweise via 
 
 | Version | Änderungen |
 |---|---|
+| v26.08.47.2 | **Wetter-Fetch-Timeout.** `fetchWeather` (BrightSky) erhält einen 6-s-`AbortController`-Timeout (`ctrl.abort()` → im `catch` als `null` behandelt, `finally` räumt den Timer). Ein hängender Abruf blockiert den 10-min-Poll nicht mehr; `updateWeatherOverlay` behält bei Fehler den letzten guten Datensatz (unverändert). Gegencheck aus dem SkyCheck-v114-Wetter-Robustheits-Fix — SkyAlarm war bereits nicht-fatal (try/catch, last-good) und nutzt ein 7-h-Fenster (`now−1h…now+6h`, kein 7-Tage-Timeout-Problem), nur der Fetch-Timeout fehlte. |
 | v26.08.47.1 | **App-Verbund vervollständigt.** Der Start-Splash verlinkt jetzt GPS2UTM, SkyCheck und PointCloud Manager als einheitliche responsive App-Kacheln. |
 | v26.08.47.0 | **GPS2UTM im App-Verbund und neues Versionsschema.** Die Startseite enthält eine responsive GPS2UTM-Kachel. SkyAlarm nutzt nun `vYY.MM.major.subversion`; die vollständige Version erscheint im Browser-Tab, App-Kopf, Splash-Footer und Info-Modal. |
 | v0.46 | **Koordinaten und Höhenbezug.** Die Standort-Infotafel zeigt ETRS89/UTM direkt und klappt WGS84-DMS, Gauß-Krüger-Näherung sowie GCG2016 auf. Liefert das Gerät eine ellipsoidische GPS-Höhe, wird daraus DHHN2016 berechnet. Gemeinsames Modul und kompaktes Geoid werden offline gecacht; Karten-Doppelklick verwirft bewusst eine nicht mehr zur Position passende GPS-Höhe. |
