@@ -32,7 +32,7 @@ Abgespalten aus dem Schwesterprojekt [SkyCheck](https://skycheck-de.netlify.app/
 ### Karte und Bedienung
 
 - **Karten-Stile**: Dark / OSM / Satellit / Hell
-- **Hell-/Dunkel-Modus** für Tag- und Nachteinsatz, automatisch gekoppelt mit OSM beziehungsweise CARTO Dark; der Kartenstil bleibt anschließend manuell überschreibbar
+- **Hell-/Dunkel-Modus** für Tag- und Nachteinsatz, automatisch gekoppelt mit OSM (hell) beziehungsweise per CSS invertierten OSM-Tiles (dunkel); der Kartenstil bleibt anschließend manuell überschreibbar
 - **Radius-Einführung und automatischer Kartenausschnitt**: Bei jedem App-Start erscheinen einmal die Reaktionszeiten plus blinkender Hinweis auf den Radius-Schalter; 2/4/6-km-Wechsel zoomen den vollständigen Detektionskreis ins Bild
 - **Vollständige Karten-Attribution** unten rechts: Leaflet, jeweiliger Basiskartenanbieter sowie DiPUL/DFS mit dipul-Lizenzhinweis CC BY-ND 4.0
 - **Durchgängiges Hell-/Dunkel-Design** einschließlich Info-Modal, Hintergrundabdunklung, Quellentags und Schließen-Button
@@ -62,7 +62,7 @@ Single-File-PWA mit einer einzigen Netlify-Function als CORS-Proxy. Die UI- und 
 - [DiPUL WMS](https://www.dipul.de/) — Luftraumzonen Deutschland
 - [BrightSky](https://brightsky.dev/) — Wetterdaten des Deutschen Wetterdienstes (Wind, Böen, Temperatur, Taupunkt, Niederschlag, Sicht)
 - [Leaflet](https://leafletjs.com/) — Karten-Engine
-- [CARTO](https://carto.com/) / [OpenStreetMap](https://www.openstreetmap.org/) / [Esri](https://www.esri.com/) — Tile-Server
+- [OpenStreetMap](https://www.openstreetmap.org/) (hell + CSS-invertiert für Dunkelmodus) / [Esri](https://www.esri.com/) — Tile-Server
 
 ## Lokale Entwicklung
 
@@ -100,7 +100,7 @@ die `major`-Stelle; ein neuer Funktionsstand startet bei Subversion `0`, reine
 lokale Fixes und Hotfixes erhöhen nur die letzte Stelle. Zentrale Quelle ist
 `const APP_VER` in `skyalarm.html` (Anker `[J-VER]`); der vollständige String
 erscheint im Browser-Tab, App-Kopf und Info-Modal. Aktueller Stand:
-**v26.08.47.3**.
+**v26.08.47.4**.
 
 Die vollständige Versions-Historie ist in `CLAUDE.md` dokumentiert.
 
