@@ -986,6 +986,7 @@
       <button class="av-btn" id="av-gps" data-i18n-title="ctrlGps" title="GPS">⊕</button>
       <button class="av-btn" id="av-autostart" data-i18n-title="ctrlAutostart" title="Auto-Start">⚡</button>
       <button class="av-btn on" id="av-zones" data-i18n-title="ctrlZones" title="Geozonen">⬡</button>
+      <button class="av-btn" id="av-radar" data-i18n-title="ctrlRadar" title="Regenradar (DWD)">🌧</button>
       <button class="av-btn" id="av-labels" data-i18n-title="ctrlLabels" title="Fluggerät-Infos einblenden">✈</button>
       <button class="av-btn" id="av-radius" data-i18n-title="ctrlRadius" title="Detektionsradius">◎</button>
       <button class="av-btn" id="av-style" data-i18n-title="ctrlStyle" title="Kartenstil">⧉</button>
@@ -1033,6 +1034,7 @@
       <a href="https://www.glidernet.org/" target="_blank" rel="noopener">OGN</a>
       <a href="https://www.dipul.de/" target="_blank" rel="noopener">DiPUL WMS</a>
       <a href="https://brightsky.dev/" target="_blank" rel="noopener">BrightSky / DWD</a>
+      <a href="https://www.dwd.de/copyright" target="_blank" rel="noopener">DWD Radar</a>
       <a href="https://leafletjs.com/" target="_blank" rel="noopener">Leaflet</a>
       <a href="https://www.openstreetmap.org/" target="_blank" rel="noopener">OpenStreetMap</a>
       <a href="https://www.esri.com/" target="_blank" rel="noopener">Esri</a>
@@ -1054,6 +1056,7 @@
         <a href="https://www.glidernet.org/" target="_blank">OGN</a>
         <a href="https://www.dipul.de/" target="_blank">DiPUL WMS</a>
         <a href="https://brightsky.dev/" target="_blank">BrightSky / DWD</a>
+        <a href="https://www.dwd.de/copyright" target="_blank">DWD Radar</a>
         <a href="https://leafletjs.com/" target="_blank">Leaflet</a>
         <a href="https://www.openstreetmap.org/" target="_blank">OpenStreetMap</a>
         <a href="https://www.esri.com/" target="_blank">Esri</a>
@@ -1067,7 +1070,7 @@
 
   <script>
     /* [J-VER] Versionsnummer — einzige Stelle */
-    const APP_VER = '26.08.47.4';
+    const APP_VER = '26.08.48.0';
     const APP_VERSION_CODE = 'v' + APP_VER;
     document.title = `SkyAlarm ${APP_VERSION_CODE} — Tiefflieger-Alarm`;
     document.querySelectorAll('.l-ver').forEach(e => e.textContent = APP_VERSION_CODE);
@@ -1081,6 +1084,7 @@
         ctrlGps: 'Aktuellen Standort verwenden',
         ctrlAutostart: 'Auto-Start: beim Öffnen direkt den Standort verwenden',
         ctrlZones: 'Geozonen ein/aus',
+        ctrlRadar: 'Regenradar (DWD) ein/aus — nur Deutschland',
         ctrlLabels: 'Fluggerät-Infos dauerhaft einblenden',
         ctrlRadius: 'Detektionsradius umschalten',
         ctrlStyle: 'Kartenstil wechseln',
@@ -1164,6 +1168,7 @@
         ctrlGps: 'Use current location',
         ctrlAutostart: 'Auto-start: use location immediately on launch',
         ctrlZones: 'Toggle airspace zones',
+        ctrlRadar: 'Toggle rain radar (DWD) — Germany only',
         ctrlLabels: 'Show aircraft labels permanently',
         ctrlRadius: 'Cycle detection radius',
         ctrlStyle: 'Cycle map style',
@@ -1285,6 +1290,11 @@
     const BRIGHTSKY_URL = 'https://api.brightsky.dev/weather';
     const ELEVATION_URL = 'https://api.open-meteo.com/v1/elevation'; // Geländehöhe (Copernicus DEM, MSL/EGM), CORS, kostenlos
     const THEME_STORAGE_KEY = 'skyalarm-theme';
+    // DWD-Niederschlagsradar (GeoServer WMS, GeoNutzV: entgeltfrei, Quellenangabe Pflicht; nur DE).
+    // Als Bild-Overlay (L.tileLayer.wms) — kein CORS nötig, kein API-Key. Standardmäßig AUS.
+    const DWD_WMS_URL = 'https://maps.dwd.de/geoserver/dwd/wms';
+    const DWD_RADAR_LAYER = 'Niederschlagsradar';
+    const DWD_ATTRIBUTION = '© <a href="https://www.dwd.de/copyright" target="_blank" rel="noopener">Deutscher Wetterdienst</a>';
     const DIPUL_ATTRIBUTION = 'DiPUL / DFS, '
       + '<a href="https://www.dipul.de/homepage/de/informationen/geografische-gebiete/download/" target="_blank" rel="noopener">dipul</a>, '
       + '<a href="https://creativecommons.org/licenses/by-nd/4.0/deed.de" target="_blank" rel="noopener">CC BY-ND 4.0</a>';
@@ -1299,14 +1309,14 @@
 
     /* [J-STATE] Anwendungs-State */
     const AV = {
-      map: null, tileL: null, dipulL: null, acLayer: null, trailLayer: null, trails: {},
+      map: null, tileL: null, dipulL: null, radarL: null, acLayer: null, trailLayer: null, trails: {},
       radiusCirc: null, scanCirc: null, posMarker: null,
       interval: null, beepInterval: null, weatherInterval: null, wakeLock: null,
       lat: null, lon: null, groundElevM: null,
       gpsAltitudeM: null, gpsAltitudeAccuracyM: null,
       geoidSeparationM: null, geoidCoordinateKey: '',
       lastZones: [], lastWeather: null,
-      zonesOn: true, lightMode: false, alarmOn: false, allLabels: false, autoStart: false, styleIdx: 0,
+      zonesOn: true, radarOn: false, lightMode: false, alarmOn: false, allLabels: false, autoStart: false, styleIdx: 0,
       openPopupHex: null,
       _polling: false, lastPlanes: null, alarmMissCount: 0, ALARM_HOLD: 3,
       RADIUS_KM: 2, POLL_MS: 2000, ALT_LIMIT_FT: 984, SCAN_KM: 18.52, TRAIL_SEC: 60,
@@ -2097,6 +2107,12 @@
         layers: getActiveDipulLayers(), format: 'image/png', transparent: true, opacity: 0.55, version: '1.3.0',
         attribution: DIPUL_ATTRIBUTION,
       }).addTo(AV.map);
+      // DWD-Regenradar (zuschaltbar, Standard AUS) — erst beim Toggle per addLayer eingeblendet.
+      AV.radarL = L.tileLayer.wms(DWD_WMS_URL, {
+        layers: DWD_RADAR_LAYER, format: 'image/png', transparent: true, opacity: 0.6, version: '1.3.0',
+        maxZoom: 19, attribution: DWD_ATTRIBUTION,
+      });
+      if (AV.radarOn) { AV.map.addLayer(AV.radarL); AV.radarL.bringToBack(); AV.tileL.bringToBack(); }
       AV.acLayer = L.layerGroup().addTo(AV.map);
       AV.trailLayer = L.layerGroup().addTo(AV.map);
       AV.trails = {};
@@ -2641,6 +2657,20 @@
         AV.zonesOn = !AV.zonesOn;
         AV.zonesOn ? AV.map.addLayer(AV.dipulL) : AV.map.removeLayer(AV.dipulL);
         $('av-zones').classList.toggle('on', AV.zonesOn);
+      });
+
+      $('av-radar').addEventListener('click', () => {
+        if (!AV.map || !AV.radarL) return;
+        AV.radarOn = !AV.radarOn;
+        if (AV.radarOn) {
+          AV.map.addLayer(AV.radarL);
+          // Radar unter die Zonen/Marker, aber über die Basiskarte legen.
+          AV.radarL.bringToBack();
+          if (AV.tileL) AV.tileL.bringToBack();
+        } else {
+          AV.map.removeLayer(AV.radarL);
+        }
+        $('av-radar').classList.toggle('on', AV.radarOn);
       });
 
       $('av-labels').addEventListener('click', () => {

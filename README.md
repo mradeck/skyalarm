@@ -61,6 +61,7 @@ Single-File-PWA mit einer einzigen Netlify-Function als CORS-Proxy. Die UI- und 
 - [Open Glider Network](https://www.glidernet.org/) — FLARM, OGN-Tracker, FANET (über Netlify-Function-Proxy zu `live.glidernet.org/lxml.php`)
 - [DiPUL WMS](https://www.dipul.de/) — Luftraumzonen Deutschland
 - [BrightSky](https://brightsky.dev/) — Wetterdaten des Deutschen Wetterdienstes (Wind, Böen, Temperatur, Taupunkt, Niederschlag, Sicht)
+- [DWD-Regenradar](https://www.dwd.de/copyright) — zuschaltbares Niederschlagsradar via GeoServer-WMS (`maps.dwd.de`, GeoNutzV: entgeltfrei mit Quellenangabe „© Deutscher Wetterdienst"; nur Deutschland)
 - [Leaflet](https://leafletjs.com/) — Karten-Engine
 - [OpenStreetMap](https://www.openstreetmap.org/) (hell + CSS-invertiert für Dunkelmodus) / [Esri](https://www.esri.com/) — Tile-Server
 
@@ -100,7 +101,7 @@ die `major`-Stelle; ein neuer Funktionsstand startet bei Subversion `0`, reine
 lokale Fixes und Hotfixes erhöhen nur die letzte Stelle. Zentrale Quelle ist
 `const APP_VER` in `skyalarm.html` (Anker `[J-VER]`); der vollständige String
 erscheint im Browser-Tab, App-Kopf und Info-Modal. Aktueller Stand:
-**v26.08.47.4**.
+**v26.08.48.0**.
 
 Die vollständige Versions-Historie ist in `CLAUDE.md` dokumentiert.
 
