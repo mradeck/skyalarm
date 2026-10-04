@@ -734,6 +734,13 @@
       text-decoration: none;
     }
     #splash .splash-srcs a:hover { text-decoration: underline; }
+    /* CTR-Höhenregeln als hervorgehobenes Feature-Chip in der Splash-Button-Reihe */
+    #splash .splash-srcs a.src-feature {
+      border: 1px solid var(--accent);
+      background: rgba(0,180,216,0.18);
+      font-weight: 700;
+    }
+    #splash .splash-srcs a.src-feature:hover { text-decoration: none; background: rgba(0,180,216,0.28); }
     #splash .splash-foot {
       font-size: 0.7rem;
       opacity: 0.55;
@@ -1030,6 +1037,7 @@
       </a>
     </div>
     <div class="modal-srcs splash-srcs">
+      <a href="https://skycheck-de.netlify.app/ctr-hoehenregeln.html" target="_blank" rel="noopener" class="src-feature">📐 CTR-Höhenregeln</a>
       <a href="https://airplanes.live/" target="_blank" rel="noopener">airplanes.live</a>
       <a href="https://www.glidernet.org/" target="_blank" rel="noopener">OGN</a>
       <a href="https://www.dipul.de/" target="_blank" rel="noopener">DiPUL WMS</a>
@@ -1070,7 +1078,7 @@
 
   <script>
     /* [J-VER] Versionsnummer — einzige Stelle */
-    const APP_VER = '26.08.48.0';
+    const APP_VER = '26.08.48.1';
     const APP_VERSION_CODE = 'v' + APP_VER;
     document.title = `SkyAlarm ${APP_VERSION_CODE} — Tiefflieger-Alarm`;
     document.querySelectorAll('.l-ver').forEach(e => e.textContent = APP_VERSION_CODE);

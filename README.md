@@ -101,7 +101,7 @@ die `major`-Stelle; ein neuer Funktionsstand startet bei Subversion `0`, reine
 lokale Fixes und Hotfixes erhöhen nur die letzte Stelle. Zentrale Quelle ist
 `const APP_VER` in `skyalarm.html` (Anker `[J-VER]`); der vollständige String
 erscheint im Browser-Tab, App-Kopf und Info-Modal. Aktueller Stand:
-**v26.08.48.0**.
+**v26.08.48.1**.
 
 Die vollständige Versions-Historie ist in `CLAUDE.md` dokumentiert.
 
