@@ -5,7 +5,7 @@ import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
 const fn = require('../netlify/functions/adsb.js');
 const realFetch = globalThis.fetch;
-afterEach(() => { globalThis.fetch = realFetch; });
+afterEach(() => { globalThis.fetch = realFetch; fn._reset(); });
 
 const LOL = (lat, lon, d) => `https://api.adsb.lol/v2/point/${lat}/${lon}/${d}`;
 const FI = (lat, lon, d) => `https://opendata.adsb.fi/api/v3/lat/${lat}/lon/${lon}/dist/${d}`;
@@ -88,7 +88,7 @@ test('ungültige oder fehlende lat/lon → 400, fetch wird nie aufgerufen', asyn
   assert.equal(n, 0);
 });
 
-test('dist: Default 108, Klemmung auf 1..250, Rundung auf ganze Zahl', async () => {
+test('dist: Default 10, Klemmung auf 1..30, Rundung auf ganze Zahl', async () => {
   const urls = [];
   globalThis.fetch = async (u) => { urls.push(u); return json({ ac: [] })(); };
   await call({ lat: '10', lon: '20' });
@@ -97,7 +97,7 @@ test('dist: Default 108, Klemmung auf 1..250, Rundung auf ganze Zahl', async () 
   await call({ lat: '10', lon: '20', dist: '9999' });
   await call({ lat: '10', lon: '20', dist: '10.6' });
   await call({ lat: '10', lon: '20', dist: 'abc' });
-  assert.deepEqual(urls, [LOL(10, 20, 108), LOL(10, 20, 1), LOL(10, 20, 1), LOL(10, 20, 250), LOL(10, 20, 11), LOL(10, 20, 108)]);
+  assert.deepEqual(urls, [LOL(10, 20, 10), LOL(10, 20, 1), LOL(10, 20, 1), LOL(10, 20, 30), LOL(10, 20, 11), LOL(10, 20, 10)]);
 });
 
 test('Feld-Whitelist: Zusatzfelder entfallen, Einträge ohne numerische lat/lon entfallen', async () => {
@@ -121,7 +121,7 @@ const withLimits = async (l, f) => { const old = { ...fn.LIMITS }; Object.assign
 const abortErr = () => Object.assign(new Error('aborted'), { name: 'AbortError' });
 
 test('Standard-Budget liegt unter dem Netlify-Limit von 10 s', () => {
-  assert.ok(fn.LIMITS.totalMs <= 8500 && fn.LIMITS.primaryMs <= 4000);
+  assert.ok(fn.LIMITS.totalMs <= 6500 && fn.LIMITS.primaryMs <= 3000);
 });
 
 test('Primärquelle hängt → Timeout, Fallback liefert innerhalb des Budgets', async () => {
@@ -198,4 +198,77 @@ test('SkyAlarm-Felder (hex, flight, lat, lon, alt_baro, alt_geom, gs, track, cat
   const r = await call({ lat: '50.03', lon: '8.56', dist: '10' });
   assert.deepEqual(r.body.ac, [AC]);
   assert.equal(r.body.ac[0].source, undefined);
+});
+
+// ── Review-Fixes ──────────────────────────────────────────────────────────────
+const withClock = async (f) => {
+  let t = 1_000_000; const old = fn.LIMITS.now; fn.LIMITS.now = () => t;
+  try { await f(ms => { t += ms; }); } finally { fn.LIMITS.now = old; }
+};
+
+test('Alarm-App-Budgets: Primär 3000 ms, gesamt 6500 ms, Merkzeit 60 s', () => {
+  assert.equal(fn.LIMITS.primaryMs, 3000);
+  assert.equal(fn.LIMITS.totalMs, 6500);
+  assert.equal(fn.LIMITS.downMs, 60000);
+});
+
+test('Primärausfall wird 60 s gemerkt: danach zuerst adsb.fi, nach Ablauf wieder adsb.lol zuerst', async () => {
+  await withClock(async (advance) => {
+    const urls = [];
+    let lolDown = true;
+    globalThis.fetch = async (u) => { urls.push(u); return u.startsWith('https://api.adsb.lol') && lolDown ? fail403() : json({ ac: [AC] })(); };
+    let r = await call({ lat: '1', lon: '2', dist: '10' });
+    assert.equal(r.body.source, 'adsb.fi');
+    assert.equal(urls.length, 2);                       // lol zuerst (fehlgeschlagen), dann fi
+    urls.length = 0;
+    r = await call({ lat: '1', lon: '2', dist: '10' });
+    assert.equal(r.body.source, 'adsb.fi');
+    assert.deepEqual(urls, [FI(1, 2, 10)]);             // fi zuerst, lol gar nicht versucht
+    urls.length = 0;
+    advance(61000); lolDown = false;
+    r = await call({ lat: '1', lon: '2', dist: '10' });
+    assert.equal(r.body.source, 'adsb.lol');
+    assert.deepEqual(urls, [LOL(1, 2, 10)]);
+  });
+});
+
+test('Während der Merkzeit fällt adsb.fi-Ausfall auf adsb.lol zurück; dessen Erfolg löscht die Markierung', async () => {
+  await withClock(async () => {
+    globalThis.fetch = async (u) => u.startsWith('https://api.adsb.lol') ? fail403() : json({ ac: [AC] })();
+    await call({ lat: '1', lon: '2' });                 // lol fällt aus → gemerkt
+    const urls = [];
+    globalThis.fetch = async (u) => { urls.push(u); return u.startsWith('https://opendata.adsb.fi') ? fail403() : json({ ac: [AC] })(); };
+    const r = await call({ lat: '1', lon: '2' });
+    assert.equal(r.body.source, 'adsb.lol');
+    assert.deepEqual(urls.map(u => u.includes('adsb.fi') ? 'fi' : 'lol'), ['fi', 'lol']);
+    urls.length = 0;
+    await call({ lat: '1', lon: '2' });                 // lol war erfolgreich → wieder lol zuerst
+    assert.deepEqual(urls.map(u => u.includes('adsb.fi') ? 'fi' : 'lol'), ['lol']);
+  });
+});
+
+test('dist wird auf 30 nm begrenzt', async () => {
+  const urls = [];
+  globalThis.fetch = async (u) => { urls.push(u); return json({ ac: [] })(); };
+  await call({ lat: '1', lon: '2', dist: '250' });
+  await call({ lat: '1', lon: '2', dist: '31' });
+  assert.deepEqual(urls, [LOL(1, 2, 30), LOL(1, 2, 30)]);
+});
+
+test('Origin/Referer wie ogn.js: eigene Hosts, Previews, localhost und fehlende Header erlaubt, fremde 403 ohne fetch', async () => {
+  let n = 0;
+  globalThis.fetch = async () => { n++; return json({ ac: [] })(); };
+  const withHdr = async (headers) => { const r = await fn.handler({ headers, queryStringParameters: { lat: '1', lon: '2' } }); return r.statusCode; };
+  for (const h of [undefined, {}, { origin: 'https://skyalarm.netlify.app' }, { referer: 'https://skyalarm.netlify.app/skyalarm.html' },
+    { origin: 'https://deploy-preview-3--skyalarm.netlify.app' }, { origin: 'http://localhost:8888' }, { referer: 'http://127.0.0.1:8888/' }, { origin: 'not a url' }]) {
+    assert.equal(await withHdr(h), 200, JSON.stringify(h));
+  }
+  assert.equal(n, 8);
+  n = 0;
+  for (const h of [{ origin: 'https://evil.example' }, { referer: 'https://evil.example/x' }, { origin: 'https://skyalarm.netlify.app.evil.example' }, { origin: 'https://xskyalarm.netlify.app' }]) {
+    const r = await fn.handler({ headers: h, queryStringParameters: { lat: '1', lon: '2' } });
+    assert.equal(r.statusCode, 403, JSON.stringify(h));
+    assert.equal(JSON.parse(r.body).error, 'forbidden_origin');
+  }
+  assert.equal(n, 0);
 });

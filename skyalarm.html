@@ -1008,7 +1008,7 @@
 <body>
 
   <div id="app-view">
-    <div class="av-topbar">
+    <div class="av-topbar" id="av-topbar">
       <button class="av-lang" id="btn-lang" data-i18n-title="langTitle" title="Sprache">🇩🇪</button>
       <span class="av-loc" id="av-loc" data-i18n="locInit">Standort wird ermittelt…</span>
       <span class="av-stat connecting" id="av-stat">… Verbinde</span>
@@ -1394,7 +1394,7 @@
       lastZones: [], lastWeather: null,
       zonesOn: true, radarOn: false, lightMode: false, alarmOn: false, allLabels: false, autoStart: false, styleIdx: 0,
       openPopupHex: null,
-      _polling: false, lastPlanes: null, alarmMissCount: 0, alarmCount: 0, ALARM_HOLD: 2,   /* 2 Zyklen × 5 s ≈ 10 s Haltezeit */
+      _polling: false, lastPlanes: null, alarmMissCount: 0, alarmCount: 0, ALARM_HOLD: 2,   /* endet am 2. leeren Zyklus ≈ 10 s */
       health: null,   /* Quellen-Zustand, siehe avNextHealth() */
       RADIUS_KM: 2, POLL_MS: 5000, ALT_LIMIT_FT: 984, SCAN_KM: 18.52, TRAIL_SEC: 60,
       RADIUS_OPTS: [2, 4, 6], radiusIdx: 0, radiusInfoTimer: null, radiusIntroShown: false,
@@ -2212,6 +2212,7 @@
         if (AV.posMarker) AV.posMarker.setLatLng([AV.lat, AV.lon]);
         updateZonesOverlay();
         updateWeatherOverlay();
+        avPollNow(true);
       });
     }
 
@@ -2262,41 +2263,79 @@
     // Self-scheduling-Poll: nach jedem Lauf wird der nächste per setTimeout geplant.
     // Das erlaubt exponentielles Backoff bei Netzverlust (kein Dauerfeuer im Funkloch).
     function avStartPoll() { avPoll(); }
-    function avScheduleNextPoll(anyOk) {
-      if (anyOk) {
-        AV.pollFailStreak = 0;
-      } else {
-        AV.pollFailStreak = Math.min(AV.pollFailStreak + 1, 5);   // Backoff-Deckel
-      }
-      // Bei Erfolg reguläres POLL_MS; bei aufeinanderfolgenden Fehlern verdoppeln (max 30 s).
-      const delay = AV.pollFailStreak === 0
-        ? AV.POLL_MS
-        : Math.min(AV.POLL_MS * Math.pow(2, AV.pollFailStreak), 30000);
+    /* Reine Zeitplanung. Erfolg: Takt relativ zum START des Polls (Dauer des Polls wird abgezogen,
+       mindestens 500 ms Pause). Kein Erfolg: exponentielles Backoff (max 30 s). */
+    function avPollDelay(anyOk, prevStreak, pollMs, elapsedMs) {
+      if (anyOk) return { streak: 0, delay: Math.max(500, pollMs - Math.max(0, elapsedMs || 0)) };
+      const streak = Math.min((prevStreak || 0) + 1, 5);
+      return { streak, delay: Math.min(pollMs * Math.pow(2, streak), 30000) };
+    }
+    function avScheduleNextPoll(anyOk, startedAt) {
+      const r = avPollDelay(anyOk, AV.pollFailStreak, AV.POLL_MS, Date.now() - (startedAt || Date.now()));
+      AV.pollFailStreak = r.streak;
+      let delay = r.delay;
+      // Position wurde während des Polls geändert: zügig neu abfragen statt volle Pause abzuwarten.
+      if (AV._repoll) { AV._repoll = false; delay = Math.min(delay, 250); }
       clearTimeout(AV._pollTimer);
       AV._pollTimer = setTimeout(avPoll, delay);
     }
+    /* Sofortiger Poll (Rückkehr aus dem Hintergrund, Positionswechsel). Der In-Flight-Guard bleibt
+       erhalten; bei Positionswechsel während eines laufenden Polls wird danach zügig nachgezogen. */
+    function avPollNow(positionChanged) {
+      if (AV.lat == null) return;
+      if (AV._polling) { if (positionChanged) AV._repoll = true; return; }
+      clearTimeout(AV._pollTimer);
+      avPoll();
+    }
 
     /* [J-HEALTH] Pro-Quellen-Zustand (ADS-B und OGN getrennt). Reine Funktion, ohne DOM-Zugriff.
-       Eine Quelle gilt als "fehlend" nach 2 Fehlpolls in Folge, bzw. schon nach dem ersten Fehlpoll,
-       wenn sie noch nie geantwortet hat (Start mit totem Feed soll nicht 2 Takte lang "Beobachte" zeigen).
-       mode: connecting | ok | adsb_missing | ogn_missing | none */
+       Eine Quelle gilt als "fehlend" nach 2 Fehlpolls in Folge. "connecting" bleibt, bis eine Quelle
+       geantwortet hat oder beide zweimal ausgefallen sind. mode: connecting | ok | adsb_missing | ogn_missing | none */
     function avNextHealth(prev, adsbOk, ognOk) {
-      const p = prev || { adsbFails: 0, ognFails: 0, adsbEver: false, ognEver: false, started: false };
+      const p = prev || { adsbFails: 0, ognFails: 0, started: false, mode: 'connecting' };
       const h = {
         adsbFails: adsbOk ? 0 : Math.min(p.adsbFails + 1, 99),
         ognFails: ognOk ? 0 : Math.min(p.ognFails + 1, 99),
-        adsbEver: p.adsbEver || !!adsbOk,
-        ognEver: p.ognEver || !!ognOk,
         started: p.started || !!adsbOk || !!ognOk,
       };
-      const adsbMissing = h.adsbFails >= 2 || (h.adsbFails >= 1 && !h.adsbEver);
-      const ognMissing = h.ognFails >= 2 || (h.ognFails >= 1 && !h.ognEver);
-      if (h.adsbFails >= 2 && h.ognFails >= 2) h.mode = 'none';
+      const adsbMissing = h.adsbFails >= 2;
+      const ognMissing = h.ognFails >= 2;
+      if (adsbMissing && ognMissing) h.mode = 'none';
       else if (!h.started) h.mode = 'connecting';
-      else if (adsbMissing && !ognMissing) h.mode = 'adsb_missing';
-      else if (ognMissing && !adsbMissing) h.mode = 'ogn_missing';
+      else if (adsbMissing) h.mode = 'adsb_missing';
+      else if (ognMissing) h.mode = 'ogn_missing';
       else h.mode = 'ok';
+      // changedTo: nur bei Übergang in einen Warnzustand (einmalig, keine Wiederholung, nichts bei Erholung).
+      // 'none' immer; adsb_missing/ogn_missing nur aus ok/connecting (Teilerholung aus 'none' bleibt still).
+      h.changedTo = null;
+      if (h.mode !== p.mode) {
+        if (h.mode === 'none') h.changedTo = 'none';
+        else if ((h.mode === 'adsb_missing' || h.mode === 'ogn_missing') && (p.mode === 'ok' || p.mode === 'connecting')) h.changedTo = h.mode;
+      }
       return h;
+    }
+
+    /* Akustisches/haptisches Signal beim Übergang in einen Warnzustand. 'none' = Datenverlust (anderes
+       Klangbild als der Annäherungsalarm: tiefe Rechteck-Töne, absteigend) + Vibration; sonst ein einzelner
+       leiser Hinweiston. Es gibt in SkyAlarm keine Stumm-Einstellung; der Audio-Kontext ist derselbe wie beim Alarm. */
+    function avWarnSignal(kind) {
+      if (!kind) return;
+      try {
+        const ctx = _avCtx();
+        const tones = kind === 'none'
+          ? [[330, 0, 'square', 0.18], [247, 0.3, 'square', 0.18], [330, 0.6, 'square', 0.18], [247, 0.9, 'square', 0.18]]
+          : [[523, 0, 'triangle', 0.08]];
+        tones.forEach(([freq, t, type, vol]) => {
+          const o = ctx.createOscillator(), g = ctx.createGain();
+          o.type = type; o.frequency.value = freq;
+          o.connect(g); g.connect(ctx.destination);
+          g.gain.setValueAtTime(vol, ctx.currentTime + t);
+          g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + t + (kind === 'none' ? 0.25 : 0.2));
+          o.start(ctx.currentTime + t);
+          o.stop(ctx.currentTime + t + 0.3);
+        });
+      } catch (e) { }
+      if (kind === 'none' && navigator.vibrate) navigator.vibrate([500, 150, 500, 150, 500]);
     }
 
     /* Kopfzeilen-Chip und Warnleiste gemäß Quellenzustand. Ein aktiver Alarm behält den Chip
@@ -2324,10 +2363,13 @@
     /* Das Status-Overlay (rechts oben) sitzt sonst auf dem Alarm-Banner bzw. der Warnleiste:
        unterhalb der sichtbaren Meldeleiste neu ausrichten. */
     function avLayoutBars() {
-      const bars = $('av-bars'), stack = document.querySelector('.tl-stack');
-      if (!bars || !stack) return;
+      const bars = $('av-bars'), stack = document.querySelector('.tl-stack'), top = $('av-topbar');
+      if (!bars || !stack || !top) return;
+      const topH = top.offsetHeight;
+      bars.style.top = topH + 'px';
       const h = bars.offsetHeight;
-      stack.style.top = h > 0 ? (36 + h + 8) + 'px' : '';
+      stack.style.top = h > 0 ? (topH + h + 8) + 'px' : '';
+      stack.style.maxHeight = h > 0 ? 'calc(100vh - ' + (290 + h) + 'px)' : '';
     }
     window.addEventListener('resize', () => avLayoutBars());
 
@@ -2351,27 +2393,32 @@
       // AbortController mit Timeout: hängende Requests auf schwachem Mobilfunk sonst
       // akkumulieren bis zum Verbindungslimit.
       const ctrl = new AbortController();
-      const to = setTimeout(() => ctrl.abort(), 9500);   // > 8,5 s Zeitbudget des ADS-B-Proxys (Fallback adsb.fi)
+      const to = setTimeout(() => ctrl.abort(), 8000);   // > 6,5 s Zeitbudget des ADS-B-Proxys (Fallback adsb.fi)
+      const t0 = Date.now();
+      const lat0 = AV.lat, lon0 = AV.lon;   // Position bei Pollstart; bei Wechsel wird das Ergebnis verworfen
       let adsbOk = false, ognOk = false;   // Quelle hat eine gültige Antwort ({ ac: [...] }) geliefert?
       try {
         // ADS-B (Same-Origin-Proxy auf adsb.lol/adsb.fi, 10 NM Radius) und OGN-Proxy parallel abrufen.
         // Fehler an einer Quelle beeinträchtigen die andere nicht.
         const km = AV.SCAN_KM.toFixed(1);
         // Als Ausfall zählen: Netzfehler/Timeout, Nicht-2xx und Antworten ohne ac-Liste.
-        const adsbP = fetch(ADSB_URL + '?lat=' + AV.lat + '&lon=' + AV.lon + '&dist=10', { signal: ctrl.signal })
+        const adsbP = fetch(ADSB_URL + '?lat=' + lat0 + '&lon=' + lon0 + '&dist=10', { signal: ctrl.signal })
           .then(r => { if (!r.ok) throw new Error('http'); return r.json(); })
           .then(d => { if (!d || !Array.isArray(d.ac)) throw new Error('shape'); adsbOk = true; return d.ac.map(a => ({ ...a, source: a.source || 'ads-b' })); })
           .catch(() => []);
-        const ognP = fetch(OGN_URL + '?lat=' + AV.lat + '&lon=' + AV.lon + '&km=' + km, { signal: ctrl.signal })
+        const ognP = fetch(OGN_URL + '?lat=' + lat0 + '&lon=' + lon0 + '&km=' + km, { signal: ctrl.signal })
           .then(r => { if (!r.ok) throw new Error('http'); return r.json(); })
           .then(d => { if (!d || !Array.isArray(d.ac)) throw new Error('shape'); ognOk = true; return d.ac; })
           .catch(() => []);
         const [adsb, ogn] = await Promise.all([adsbP, ognP]);
+        if (AV.lat !== lat0 || AV.lon !== lon0) { AV._repoll = true; return; }   // Position gewechselt: Ergebnis veraltet
         AV.health = avNextHealth(AV.health, adsbOk, ognOk);
         if (AV.health.mode === 'none') {      // keine Quelle erreichbar: Karte leeren, Alarm beenden
           avClearTraffic();
+          avWarnSignal(AV.health.changedTo);
           return;
         }
+        avWarnSignal(AV.health.changedTo);   // leiser Hinweiston beim Übergang in "nur OGN"/"nur ADS-B"
         // Deduplizierung über ICAO-Hex: ADS-B hat Vorrang, OGN ergänzt nur fehlende Targets
         const merged = new Map();
         adsb.forEach(a => { if (a.hex) merged.set(a.hex.toLowerCase(), a); });
@@ -2387,14 +2434,15 @@
         });
         const planes = Array.from(merged.values());
         AV.lastPlanes = planes;
-        avUpdateMarkers(planes);
+        try { avUpdateMarkers(planes); } catch (e) { console.error('avUpdateMarkers', e); }   // darf die Annäherungsprüfung nie überspringen
         avCheckProx(planes);
       } finally {
         clearTimeout(to);
         AV._polling = false;
-        avRenderStatus();
+        // Zuerst planen: ein Fehler beim Rendern darf die Poll-Schleife nicht beenden.
         // Backoff nur, wenn KEINE Quelle erreichbar war; eine einzelne fehlende Quelle bremst das Polling nicht.
-        avScheduleNextPoll(adsbOk || ognOk);
+        avScheduleNextPoll(adsbOk || ognOk, t0);
+        try { avRenderStatus(); } catch (e) { console.error('avRenderStatus', e); }
       }
     }
 
@@ -2528,11 +2576,12 @@
           }, 5000);
         }
       } else {
-        // Hysterese: Ein aktiver Alarm wird erst nach ALARM_HOLD aufeinanderfolgenden
-        // leeren Zyklen aufgehoben. Das überbrückt Feed-Lücken (kurze Upstream-Aussetzer)
+        // Hysterese: Ein aktiver Alarm endet mit dem ALARM_HOLD-ten aufeinanderfolgenden leeren Zyklus
+        // (ALARM_HOLD = 2 → der erste leere Zyklus wird gehalten, der zweite beendet; ≈ 10 s bei 5 s Takt).
+        // Das überbrückt Feed-Lücken (kurze Upstream-Aussetzer)
         // und Grenzflattern an der Radius-/Höhengrenze, die sonst Beep-Ketten im Poll-Takt
         // erzeugen würden. Während des Haltens bleiben Banner/Beep/visueller Kanal aktiv.
-        if (AV.alarmOn && AV.alarmMissCount < AV.ALARM_HOLD) {
+        if (AV.alarmOn && AV.alarmMissCount + 1 < AV.ALARM_HOLD) {
           AV.alarmMissCount++;
           return;
         }
@@ -2683,7 +2732,10 @@
       } catch (e) { /* z. B. nicht aktiv/sichtbar oder nicht unterstützt → ignorieren */ }
     }
     document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible' && AV.lat != null) requestWakeLock();
+      if (document.visibilityState === 'visible' && AV.lat != null) {
+        requestWakeLock();
+        avPollNow(false);   // veraltete Marker/Status nach Rückkehr aus dem Hintergrund sofort erneuern
+      }
     });
 
     /* [J-START] Initial-Flow: GPS oder Standardposition */
@@ -2801,6 +2853,7 @@
           if (AV.posMarker) AV.posMarker.setLatLng([AV.lat, AV.lon]);
           updateZonesOverlay();
           updateWeatherOverlay();
+          avPollNow(true);
         });
       });
 

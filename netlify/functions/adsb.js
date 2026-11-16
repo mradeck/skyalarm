@@ -4,7 +4,8 @@
 // Reihenfolge: adsb.lol (primär), adsb.fi (Fallback).
 const UA = 'SkyAlarm (+https://skyalarm.netlify.app)';
 // Netlify bricht Functions nach 10 s ab → ein gemeinsames Zeitbudget statt zweier voller Timeouts.
-const LIMITS = { primaryMs: 4000, totalMs: 8500, minFallbackMs: 300 };
+// Alarm-App: knappe Budgets (Client-Abbruch bei 8 s). downMs: so lange wird eine ausgefallene Primärquelle gemieden.
+const LIMITS = { primaryMs: 3000, totalMs: 6500, minFallbackMs: 300, downMs: 60000, now: () => Date.now() };
 exports.LIMITS = LIMITS;   // für Tests überschreibbar
 // Nur die Felder, die SkyAlarm tatsächlich liest (avUpdateMarkers, avCheckProx, altMslFt, _kindFromCat; "source" ergänzt der Client selbst).
 const FIELDS = ['hex', 'flight', 'lat', 'lon', 'alt_baro', 'alt_geom', 'gs', 'track', 'category'];
@@ -13,6 +14,21 @@ const SOURCES = [
   { source: 'adsb.lol', url: (lat, lon, d) => `https://api.adsb.lol/v2/point/${lat}/${lon}/${d}` },
   { source: 'adsb.fi', url: (lat, lon, d) => `https://opendata.adsb.fi/api/v3/lat/${lat}/lon/${lon}/dist/${d}` },
 ];
+
+// Merkt sich einen Ausfall von adsb.lol: danach zuerst adsb.fi (sonst zahlt jeder Poll das Primär-Timeout).
+let primaryDownUntil = 0;
+exports._reset = () => { primaryDownUntil = 0; };
+
+// Herkunftsprüfung wie in ogn.js (fehlender Header → nicht blockieren; Previews/localhost erlaubt).
+function originAllowed(hdr) {
+  const src = (hdr && (hdr.origin || hdr.referer)) || '';
+  let host = '';
+  try { if (src) host = new URL(src).hostname; } catch (e) { host = ''; }
+  return !host
+    || host === 'skyalarm.netlify.app'
+    || host.endsWith('--skyalarm.netlify.app')
+    || host === 'localhost' || host === '127.0.0.1';
+}
 
 const num = v => (typeof v === 'string' && v.trim() === '') ? NaN : Number(v);
 const json = (statusCode, body, cache) => ({
@@ -51,22 +67,25 @@ function reduce(a) {
 
 exports.handler = async (event) => {
   const t0 = Date.now();
+  if (!originAllowed(event && event.headers)) return json(403, { error: 'forbidden_origin' }, 'no-store');
   const qs = (event && event.queryStringParameters) || {};
   const lat = num(qs.lat), lon = num(qs.lon);
   if (!Number.isFinite(lat) || lat < -90 || lat > 90 || !Number.isFinite(lon) || lon < -180 || lon > 180) {
     return json(400, { error: 'invalid_lat_lon' }, 'no-store');
   }
-  let dist = qs.dist === undefined ? 108 : num(qs.dist);
-  if (!Number.isFinite(dist)) dist = 108;
-  dist = Math.min(250, Math.max(1, Math.round(dist)));
+  let dist = qs.dist === undefined ? 10 : num(qs.dist);
+  if (!Number.isFinite(dist)) dist = 10;
+  dist = Math.min(30, Math.max(1, Math.round(dist)));   // max. 30 nm: SkyAlarm braucht 10 nm
   const latS = +lat.toFixed(4), lonS = +lon.toFixed(4);
 
   const tried = [];
-  for (let i = 0; i < SOURCES.length; i++) {
-    const src = SOURCES[i];
+  const order = LIMITS.now() < primaryDownUntil ? [SOURCES[1], SOURCES[0]] : SOURCES;
+  for (let i = 0; i < order.length; i++) {
+    const src = order[i];
     const remaining = LIMITS.totalMs - (Date.now() - t0);
     if (i > 0 && remaining < LIMITS.minFallbackMs) { tried.push({ source: src.source, reason: 'budget_exhausted' }); continue; }
     const res = await tryOne(src, latS, lonS, dist, i === 0 ? Math.min(LIMITS.primaryMs, remaining) : remaining);
+    if (src.source === 'adsb.lol') primaryDownUntil = res.data ? 0 : LIMITS.now() + LIMITS.downMs;
     if (res.data) {
       const ac = res.data.ac.map(reduce).filter(Boolean);
       const now = Number.isFinite(res.data.now) ? res.data.now : Date.now();
