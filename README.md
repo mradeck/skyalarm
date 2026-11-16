@@ -11,7 +11,7 @@ Abgespalten aus dem Schwesterprojekt [SkyCheck](https://skycheck-de.netlify.app/
 
 ### Luftraum
 
-- **Tiefflieger-Erkennung** in Echtzeit über zwei parallele Verkehrsquellen: [airplanes.live](https://airplanes.live/) für ADS-B (1090 MHz) und [Open Glider Network](https://www.glidernet.org/) für FLARM, OGN-Tracker, FANET — Schwelle 300 m AGL, konfigurierbarer Alarmradius 2 / 4 / 6 km
+- **Tiefflieger-Erkennung** in Echtzeit über zwei parallele Verkehrsquellen: [adsb.lol](https://adsb.lol/) (Reserve [adsb.fi](https://adsb.fi/)) für ADS-B (1090 MHz) und [Open Glider Network](https://www.glidernet.org/) für FLARM, OGN-Tracker, FANET — Schwelle 300 m AGL, konfigurierbarer Alarmradius 2 / 4 / 6 km
 - **Akustischer und vibrierender Alarm** bei Annäherung
 - **Differenzierte Fluggerät-Symbolik** nach ADS-B-Emitter-Kategorie DO-260B 2.2.3.2.5.2: Flächenflugzeug, Helikopter, Segelflieger, Luftschiff/Zeppelin, Fallschirm, Gleitschirm/Drachen, Drohne — visuell unterscheidbare SVG-Icons je Klasse
 - **OGN-Targets** sind in einem gedeckten Cyan-Ton dargestellt; im Popup wird die Quelle als „OGN" oder „ADS-B+OGN" markiert
@@ -44,12 +44,13 @@ Abgespalten aus dem Schwesterprojekt [SkyCheck](https://skycheck-de.netlify.app/
 
 ## Architektur
 
-Single-File-PWA mit einer einzigen Netlify-Function als CORS-Proxy. Die UI- und Logik-Datei ist `skyalarm.html` (HTML, CSS, JS, I18N inline); die Function `netlify/functions/ogn.js` ruft das undokumentierte XML-Format von `live.glidernet.org/lxml.php` ab und normalisiert es serverseitig auf das airplanes.live-JSON-Schema.
+Single-File-PWA mit zwei Netlify-Functions als CORS-Proxy: `netlify/functions/adsb.js` für ADS-B, `netlify/functions/ogn.js` für OGN. Die UI- und Logik-Datei ist `skyalarm.html` (HTML, CSS, JS, I18N inline); die Function `netlify/functions/ogn.js` ruft das undokumentierte XML-Format von `live.glidernet.org/lxml.php` ab und normalisiert es serverseitig auf das airplanes.live-JSON-Schema.
 
 | Datei | Zweck |
 |---|---|
 | `skyalarm.html` | Komplette Anwendung (HTML, CSS, JS, I18N) |
 | `netlify/functions/ogn.js` | OGN-Proxy: Bbox-gefilterte Abfrage von `live.glidernet.org/lxml.php`, XML-Parser, Mapping OGN-Typ → ADS-B-Emitter-Kategorie, Speed-Heuristik für unklassifizierte FLARM-Targets |
+| `netlify/functions/adsb.js` | ADS-B-Proxy: adsb.lol primär, adsb.fi als Reserve, gemeinsames 6,5-s-Budget, reduzierte typgeprüfte Felder, 3 s Cache |
 | `netlify.toml` | Netlify-Build-Konfiguration, Functions-Verzeichnis, Header-Regeln |
 | `manifest.json` | PWA-Manifest |
 | `sw.js` | Service Worker (Offline-Shell, Cache-First für Assets) |
@@ -57,7 +58,7 @@ Single-File-PWA mit einer einzigen Netlify-Function als CORS-Proxy. Die UI- und 
 
 ## Datenquellen
 
-- [airplanes.live](https://airplanes.live/) — Live-ADS-B-Feed (1090 MHz Mode-S Extended Squitter), 10 NM Scan-Radius
+- [adsb.lol](https://adsb.lol/) und [adsb.fi](https://adsb.fi/) — Live-ADS-B-Feed (1090 MHz Mode-S Extended Squitter), 10 NM Scan-Radius, über die Function `adsb`
 - [Open Glider Network](https://www.glidernet.org/) — FLARM, OGN-Tracker, FANET (über Netlify-Function-Proxy zu `live.glidernet.org/lxml.php`)
 - [DiPUL WMS](https://www.dipul.de/) — Luftraumzonen Deutschland
 - [BrightSky](https://brightsky.dev/) — Wetterdaten des Deutschen Wetterdienstes (Wind, Böen, Temperatur, Taupunkt, Niederschlag, Sicht)
@@ -101,7 +102,7 @@ die `major`-Stelle; ein neuer Funktionsstand startet bei Subversion `0`, reine
 lokale Fixes und Hotfixes erhöhen nur die letzte Stelle. Zentrale Quelle ist
 `const APP_VER` in `skyalarm.html` (Anker `[J-VER]`); der vollständige String
 erscheint im Browser-Tab, App-Kopf und Info-Modal. Aktueller Stand:
-**v26.08.48.1**.
+**v26.08.48.2**.
 
 Die vollständige Versions-Historie ist in `CLAUDE.md` dokumentiert.
 
