@@ -109,10 +109,14 @@
       50% { opacity: 0.25; }
     }
 
-    .av-banner {
+    .av-bars {
       position: absolute;
       top: 36px; left: 0; right: 0;
       z-index: 1003;
+      pointer-events: none;
+    }
+    .av-bars > * { pointer-events: auto; }
+    .av-banner {
       background: rgba(200, 0, 0, 0.92);
       color: #fff;
       padding: 0.45rem 1rem;
@@ -122,6 +126,37 @@
       display: none;
     }
     .av-banner.show { display: block; }
+
+    /* Chip in der Kopfzeile: Verbindungsaufbau und Datenquellen-Warnungen (Alarm hat Vorrang, siehe avRenderStatus) */
+    .av-stat.connecting {
+      background: rgba(150, 150, 150, 0.2);
+      color: #ccc;
+      border: 1px solid rgba(200, 200, 200, 0.6);
+    }
+    .av-stat.degraded {
+      background: rgba(255, 179, 0, 0.18);
+      color: #ffb300;
+      border: 1px solid #ffb300;
+    }
+    /* Warnleiste Datenquelle fehlt: Bernstein mit weißer Schrift; "minor" (nur OGN fehlt) dezenter */
+    .av-feedwarn {
+      display: none;
+      background: rgb(160, 90, 0);
+      color: #fff;
+      padding: 0.4rem 1rem;
+      text-align: center;
+      font-size: 0.78rem;
+      font-weight: 700;
+      line-height: 1.3;
+    }
+    .av-feedwarn.show { display: block; }
+    .av-feedwarn.none { font-size: 0.9rem; padding: 0.55rem 1rem; }
+    .av-feedwarn.minor {
+      background: rgba(30, 20, 0, 0.88);
+      color: #ffb300;
+      font-weight: 600;
+      border-bottom: 1px solid rgba(255, 179, 0, 0.6);
+    }
 
     /* Visueller Alarm-Kanal: pulsierender roter Rahmen. Redundanz zu Beep/Vibration,
        insbesondere auf iOS, wo Vibration fehlt und Audio hardwareseitig stumm sein kann. */
@@ -224,6 +259,20 @@
     #app-view.av-light .av-stat.watch {
       background: rgba(0, 160, 40, 0.15);
       color: #080;
+    }
+    #app-view.av-light .av-stat.connecting {
+      background: rgba(0, 0, 0, 0.06);
+      color: #555;
+      border-color: rgba(0, 0, 0, 0.35);
+    }
+    #app-view.av-light .av-stat.degraded {
+      background: rgba(160, 90, 0, 0.12);
+      color: rgb(160, 90, 0);
+      border-color: rgb(160, 90, 0);
+    }
+    #app-view.av-light .av-feedwarn.minor {
+      background: rgba(255, 244, 220, 0.94);
+      color: rgb(120, 66, 0);
     }
     #app-view.av-light .av-lowalt {
       background: rgba(255,255,255,0.92);
@@ -962,9 +1011,13 @@
     <div class="av-topbar">
       <button class="av-lang" id="btn-lang" data-i18n-title="langTitle" title="Sprache">🇩🇪</button>
       <span class="av-loc" id="av-loc" data-i18n="locInit">Standort wird ermittelt…</span>
-      <span class="av-stat watch" id="av-stat" data-i18n="statWatch">● Beobachte</span>
+      <span class="av-stat connecting" id="av-stat">… Verbinde</span>
     </div>
-    <div class="av-banner" id="av-banner"></div>
+    <!-- Meldeleiste unter der Kopfzeile: Alarm-Banner oben (hat Vorrang), Datenquellen-Warnung darunter. -->
+    <div class="av-bars" id="av-bars">
+      <div class="av-banner" id="av-banner"></div>
+      <div class="av-feedwarn" id="av-feedwarn" role="status" aria-live="polite"></div>
+    </div>
     <div class="tl-stack">
       <div class="status-overlay" id="status-overlay">
         <div class="status-summary" id="status-summary">
@@ -1038,7 +1091,8 @@
     </div>
     <div class="modal-srcs splash-srcs">
       <a href="https://skycheck-de.netlify.app/ctr-hoehenregeln.html" target="_blank" rel="noopener" class="src-feature">📐 CTR-Höhenregeln</a>
-      <a href="https://airplanes.live/" target="_blank" rel="noopener">airplanes.live</a>
+      <a href="https://adsb.lol/" target="_blank" rel="noopener">adsb.lol</a>
+      <a href="https://adsb.fi/" target="_blank" rel="noopener">adsb.fi</a>
       <a href="https://www.glidernet.org/" target="_blank" rel="noopener">OGN</a>
       <a href="https://www.dipul.de/" target="_blank" rel="noopener">DiPUL WMS</a>
       <a href="https://brightsky.dev/" target="_blank" rel="noopener">BrightSky / DWD</a>
@@ -1060,7 +1114,8 @@
       <p data-i18n="infoP2">Bei Annäherung eines Flugzeugs unter ca. 300 m Flughöhe innerhalb 2 km wird ein akustisches und vibrierendes Alarmsignal ausgelöst.</p>
       <p data-i18n="infoLegal">Hinweis: SkyAlarm ist ein Hilfswerkzeug ohne Gewähr. Verantwortung für sicheren Drohnenbetrieb verbleibt vollständig beim Piloten. Daten ohne Garantie.</p>
       <div class="modal-srcs">
-        <a href="https://airplanes.live/" target="_blank">airplanes.live</a>
+        <a href="https://adsb.lol/" target="_blank">adsb.lol</a>
+        <a href="https://adsb.fi/" target="_blank">adsb.fi</a>
         <a href="https://www.glidernet.org/" target="_blank">OGN</a>
         <a href="https://www.dipul.de/" target="_blank">DiPUL WMS</a>
         <a href="https://brightsky.dev/" target="_blank">BrightSky / DWD</a>
@@ -1078,7 +1133,7 @@
 
   <script>
     /* [J-VER] Versionsnummer — einzige Stelle */
-    const APP_VER = '26.08.48.1';
+    const APP_VER = '26.08.48.2';
     const APP_VERSION_CODE = 'v' + APP_VER;
     document.title = `SkyAlarm ${APP_VERSION_CODE} — Tiefflieger-Alarm`;
     document.querySelectorAll('.l-ver').forEach(e => e.textContent = APP_VERSION_CODE);
@@ -1088,6 +1143,13 @@
       de: {
         locInit: 'Standort wird ermittelt…',
         statWatch: '● Beobachte',
+        statConnecting: '… Verbinde',
+        statOnlyOgn: '⚠ Nur OGN',
+        statOnlyAdsb: '⚠ Nur ADS-B',
+        statNoData: '⚠ Keine Daten',
+        warnNoAdsb: 'ADS-B-Daten fehlen – nur OGN-Verkehr überwacht',
+        warnNoOgn: 'OGN-Daten fehlen – nur ADS-B-Verkehr überwacht',
+        warnNoData: 'Keine Luftverkehrsdaten – Alarm nicht aktiv',
         statAlarm: n => '⚠ ' + n + ' Flugzeug' + (n > 1 ? 'e' : ''),
         ctrlGps: 'Aktuellen Standort verwenden',
         ctrlAutostart: 'Auto-Start: beim Öffnen direkt den Standort verwenden',
@@ -1172,6 +1234,13 @@
       en: {
         locInit: 'Determining location…',
         statWatch: '● Watching',
+        statConnecting: '… Connecting',
+        statOnlyOgn: '⚠ OGN only',
+        statOnlyAdsb: '⚠ ADS-B only',
+        statNoData: '⚠ No data',
+        warnNoAdsb: 'ADS-B data missing – only OGN traffic is monitored',
+        warnNoOgn: 'OGN data missing – only ADS-B traffic is monitored',
+        warnNoData: 'No air traffic data – alarm not active',
         statAlarm: n => '⚠ ' + n + ' aircraft',
         ctrlGps: 'Use current location',
         ctrlAutostart: 'Auto-start: use location immediately on launch',
@@ -1282,8 +1351,7 @@
         ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
     }
     function avRefreshTexts() {
-      const stat = $('av-stat');
-      if (stat && stat.classList.contains('watch')) stat.textContent = _t('statWatch');
+      avRenderStatus();
       // Tiefflieger-Header beim nächsten Poll-Tick aktualisiert sich automatisch.
       // Zonen-Liste neu rendern (Header und Labels sprachabhängig)
       if (typeof updateZonesOverlay === 'function') updateZonesOverlay();
@@ -1293,7 +1361,7 @@
 
     /* [J-CONFIG] Konstanten und Konfiguration */
     const DIPUL_WMS_URL = 'https://uas-betrieb.de/geoservices/dipul/wms';
-    const ADSB_URL = 'https://api.airplanes.live/v2/point';
+    const ADSB_URL = '/.netlify/functions/adsb';   // Proxy für adsb.lol (primär) / adsb.fi (Fallback); airplanes.live ist geschlossen (HTTP 403)
     const OGN_URL = '/.netlify/functions/ogn';   // Proxy für live.glidernet.org/lxml.php
     const BRIGHTSKY_URL = 'https://api.brightsky.dev/weather';
     const ELEVATION_URL = 'https://api.open-meteo.com/v1/elevation'; // Geländehöhe (Copernicus DEM, MSL/EGM), CORS, kostenlos
@@ -1326,8 +1394,9 @@
       lastZones: [], lastWeather: null,
       zonesOn: true, radarOn: false, lightMode: false, alarmOn: false, allLabels: false, autoStart: false, styleIdx: 0,
       openPopupHex: null,
-      _polling: false, lastPlanes: null, alarmMissCount: 0, ALARM_HOLD: 3,
-      RADIUS_KM: 2, POLL_MS: 2000, ALT_LIMIT_FT: 984, SCAN_KM: 18.52, TRAIL_SEC: 60,
+      _polling: false, lastPlanes: null, alarmMissCount: 0, alarmCount: 0, ALARM_HOLD: 2,   /* 2 Zyklen × 5 s ≈ 10 s Haltezeit */
+      health: null,   /* Quellen-Zustand, siehe avNextHealth() */
+      RADIUS_KM: 2, POLL_MS: 5000, ALT_LIMIT_FT: 984, SCAN_KM: 18.52, TRAIL_SEC: 60,
       RADIUS_OPTS: [2, 4, 6], radiusIdx: 0, radiusInfoTimer: null, radiusIntroShown: false,
       WEATHER_POLL_MS: 600000, /* alle 10 min Wetter aktualisieren */
       STYLES: [
@@ -2207,6 +2276,73 @@
       AV._pollTimer = setTimeout(avPoll, delay);
     }
 
+    /* [J-HEALTH] Pro-Quellen-Zustand (ADS-B und OGN getrennt). Reine Funktion, ohne DOM-Zugriff.
+       Eine Quelle gilt als "fehlend" nach 2 Fehlpolls in Folge, bzw. schon nach dem ersten Fehlpoll,
+       wenn sie noch nie geantwortet hat (Start mit totem Feed soll nicht 2 Takte lang "Beobachte" zeigen).
+       mode: connecting | ok | adsb_missing | ogn_missing | none */
+    function avNextHealth(prev, adsbOk, ognOk) {
+      const p = prev || { adsbFails: 0, ognFails: 0, adsbEver: false, ognEver: false, started: false };
+      const h = {
+        adsbFails: adsbOk ? 0 : Math.min(p.adsbFails + 1, 99),
+        ognFails: ognOk ? 0 : Math.min(p.ognFails + 1, 99),
+        adsbEver: p.adsbEver || !!adsbOk,
+        ognEver: p.ognEver || !!ognOk,
+        started: p.started || !!adsbOk || !!ognOk,
+      };
+      const adsbMissing = h.adsbFails >= 2 || (h.adsbFails >= 1 && !h.adsbEver);
+      const ognMissing = h.ognFails >= 2 || (h.ognFails >= 1 && !h.ognEver);
+      if (h.adsbFails >= 2 && h.ognFails >= 2) h.mode = 'none';
+      else if (!h.started) h.mode = 'connecting';
+      else if (adsbMissing && !ognMissing) h.mode = 'adsb_missing';
+      else if (ognMissing && !adsbMissing) h.mode = 'ogn_missing';
+      else h.mode = 'ok';
+      return h;
+    }
+
+    /* Kopfzeilen-Chip und Warnleiste gemäß Quellenzustand. Ein aktiver Alarm behält den Chip
+       (rot, blinkend) und das Alarm-Banner; die Warnleiste steht in jedem Fall UNTER dem Banner. */
+    function avRenderStatus() {
+      const mode = (AV.health && AV.health.mode) || 'connecting';
+      const stat = $('av-stat'), warn = $('av-feedwarn');
+      if (!stat || !warn) return;
+      if (AV.alarmOn) {
+        stat.className = 'av-stat alarm';
+        stat.textContent = _t('statAlarm')(AV.alarmCount || 1);
+      } else if (mode === 'connecting') { stat.className = 'av-stat connecting'; stat.textContent = _t('statConnecting'); }
+      else if (mode === 'adsb_missing') { stat.className = 'av-stat degraded'; stat.textContent = _t('statOnlyOgn'); }
+      else if (mode === 'ogn_missing') { stat.className = 'av-stat degraded'; stat.textContent = _t('statOnlyAdsb'); }
+      else if (mode === 'none') { stat.className = 'av-stat degraded'; stat.textContent = _t('statNoData'); }
+      else { stat.className = 'av-stat watch'; stat.textContent = _t('statWatch'); }
+      const msg = mode === 'adsb_missing' ? 'warnNoAdsb' : mode === 'ogn_missing' ? 'warnNoOgn' : mode === 'none' ? 'warnNoData' : '';
+      if (msg) {
+        warn.className = 'av-feedwarn show' + (mode === 'none' ? ' none' : mode === 'ogn_missing' ? ' minor' : '');
+        warn.textContent = _t(msg);
+      } else { warn.className = 'av-feedwarn'; warn.textContent = ''; }
+      avLayoutBars();
+    }
+
+    /* Das Status-Overlay (rechts oben) sitzt sonst auf dem Alarm-Banner bzw. der Warnleiste:
+       unterhalb der sichtbaren Meldeleiste neu ausrichten. */
+    function avLayoutBars() {
+      const bars = $('av-bars'), stack = document.querySelector('.tl-stack');
+      if (!bars || !stack) return;
+      const h = bars.offsetHeight;
+      stack.style.top = h > 0 ? (36 + h + 8) + 'px' : '';
+    }
+    window.addEventListener('resize', () => avLayoutBars());
+
+    /* Ohne Luftverkehrsdaten: keine veralteten Positionen zeigen, Alarm samt Beep beenden. */
+    function avClearTraffic() {
+      if (AV.beepInterval) { clearInterval(AV.beepInterval); AV.beepInterval = null; }
+      AV.alarmOn = false; AV.alarmMissCount = 0; AV.alarmCount = 0;
+      $('av-banner').className = 'av-banner';
+      $('app-view').classList.remove('av-alarming');
+      AV.trails = {};
+      AV.lastPlanes = [];
+      avUpdateMarkers([]);
+      avUpdateLowAlt([]);
+    }
+
     async function avPoll() {
       // In-Flight-Guard: bei langsamem Feed dürfen sich Polls nicht überlappen, sonst
       // überschreiben verspätete (out-of-order) Antworten neuere Daten und Trails doppeln sich.
@@ -2215,19 +2351,27 @@
       // AbortController mit Timeout: hängende Requests auf schwachem Mobilfunk sonst
       // akkumulieren bis zum Verbindungslimit.
       const ctrl = new AbortController();
-      const to = setTimeout(() => ctrl.abort(), 6000);
-      let anyOk = false;   // mindestens eine Quelle netzwerkseitig erreichbar?
+      const to = setTimeout(() => ctrl.abort(), 9500);   // > 8,5 s Zeitbudget des ADS-B-Proxys (Fallback adsb.fi)
+      let adsbOk = false, ognOk = false;   // Quelle hat eine gültige Antwort ({ ac: [...] }) geliefert?
       try {
-        // ADS-B (api.airplanes.live, 10 NM Radius) und OGN-Proxy parallel abrufen.
+        // ADS-B (Same-Origin-Proxy auf adsb.lol/adsb.fi, 10 NM Radius) und OGN-Proxy parallel abrufen.
         // Fehler an einer Quelle beeinträchtigen die andere nicht.
         const km = AV.SCAN_KM.toFixed(1);
-        const adsbP = fetch(ADSB_URL + '/' + AV.lat + '/' + AV.lon + '/10', { signal: ctrl.signal })
-          .then(r => { anyOk = true; return r.json(); }).then(d => (d.ac || []).map(a => ({ ...a, source: a.source || 'ads-b' })))
+        // Als Ausfall zählen: Netzfehler/Timeout, Nicht-2xx und Antworten ohne ac-Liste.
+        const adsbP = fetch(ADSB_URL + '?lat=' + AV.lat + '&lon=' + AV.lon + '&dist=10', { signal: ctrl.signal })
+          .then(r => { if (!r.ok) throw new Error('http'); return r.json(); })
+          .then(d => { if (!d || !Array.isArray(d.ac)) throw new Error('shape'); adsbOk = true; return d.ac.map(a => ({ ...a, source: a.source || 'ads-b' })); })
           .catch(() => []);
         const ognP = fetch(OGN_URL + '?lat=' + AV.lat + '&lon=' + AV.lon + '&km=' + km, { signal: ctrl.signal })
-          .then(r => { anyOk = true; return r.ok ? r.json() : { ac: [] }; }).then(d => d.ac || [])
+          .then(r => { if (!r.ok) throw new Error('http'); return r.json(); })
+          .then(d => { if (!d || !Array.isArray(d.ac)) throw new Error('shape'); ognOk = true; return d.ac; })
           .catch(() => []);
         const [adsb, ogn] = await Promise.all([adsbP, ognP]);
+        AV.health = avNextHealth(AV.health, adsbOk, ognOk);
+        if (AV.health.mode === 'none') {      // keine Quelle erreichbar: Karte leeren, Alarm beenden
+          avClearTraffic();
+          return;
+        }
         // Deduplizierung über ICAO-Hex: ADS-B hat Vorrang, OGN ergänzt nur fehlende Targets
         const merged = new Map();
         adsb.forEach(a => { if (a.hex) merged.set(a.hex.toLowerCase(), a); });
@@ -2248,7 +2392,9 @@
       } finally {
         clearTimeout(to);
         AV._polling = false;
-        avScheduleNextPoll(anyOk);
+        avRenderStatus();
+        // Backoff nur, wenn KEINE Quelle erreichbar war; eine einzelne fehlende Quelle bremst das Polling nicht.
+        avScheduleNextPoll(adsbOk || ognOk);
       }
     }
 
@@ -2303,7 +2449,7 @@
                    + srcTag;
         m.bindPopup(info);
         // Popup-Persistenz über Poll-Zyklen hinweg: bei jedem Poll werden Marker neu aufgebaut,
-        // ohne diese Logik schließt sich das Popup nach POLL_MS (2 s). Hex merken und neu öffnen.
+        // ohne diese Logik schließt sich das Popup nach POLL_MS (5 s). Hex merken und neu öffnen.
         // Während `AV._cleaningUp` (siehe oben) ignoriert popupclose das Reset, sonst würde der
         // synchrone Cleanup-Close den gemerkten Hex zerstören, bevor das Reopen ansetzt.
         m.on('popupopen',  () => { AV.openPopupHex = hex; });
@@ -2365,6 +2511,7 @@
           if (pd < d) { a = p; d = pd; }
         }
         const cs = a.flight ? a.flight.trim() : (a.hex || '?');
+        AV.alarmCount = near.length;
         $('av-stat').className = 'av-stat alarm';
         $('av-stat').textContent = _t('statAlarm')(near.length);
         $('av-banner').className = 'av-banner show';
@@ -2382,8 +2529,8 @@
         }
       } else {
         // Hysterese: Ein aktiver Alarm wird erst nach ALARM_HOLD aufeinanderfolgenden
-        // leeren Zyklen aufgehoben. Das überbrückt Feed-Lücken (airplanes.live-Rate-Limit)
-        // und Grenzflattern an der Radius-/Höhengrenze, die sonst Beep-Ketten im 2-s-Takt
+        // leeren Zyklen aufgehoben. Das überbrückt Feed-Lücken (kurze Upstream-Aussetzer)
+        // und Grenzflattern an der Radius-/Höhengrenze, die sonst Beep-Ketten im Poll-Takt
         // erzeugen würden. Während des Haltens bleiben Banner/Beep/visueller Kanal aktiv.
         if (AV.alarmOn && AV.alarmMissCount < AV.ALARM_HOLD) {
           AV.alarmMissCount++;
@@ -2392,10 +2539,10 @@
         if (AV.alarmOn && AV.beepInterval) { clearInterval(AV.beepInterval); AV.beepInterval = null; }
         AV.alarmOn = false;
         AV.alarmMissCount = 0;
-        $('av-stat').className = 'av-stat watch';
-        $('av-stat').textContent = _t('statWatch');
+        AV.alarmCount = 0;
         $('av-banner').className = 'av-banner';
         $('app-view').classList.remove('av-alarming');
+        avRenderStatus();   // Chip: Beobachte oder Quellen-Warnung (kommt nach Alarmende zurück)
       }
     }
 
@@ -2553,6 +2700,8 @@
       else { AV.map.setView([AV.lat, AV.lon], 13); setTimeout(() => AV.map.invalidateSize(), 80); }
       setTimeout(() => fitDetectionRadius(false), 120);
       maybeShowRadiusIntro();
+      AV.health = null;
+      avRenderStatus();
       avStartPoll();
       updateZonesOverlay();
       updateWeatherOverlay();
